@@ -2,100 +2,199 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Нарды</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0b0e13" />
   <style>
-    :root { --bg:#111418; --card:#1a1f24; --text:#e8ecf1; --muted:#a9b3bd; --primary:#4c8dff; --primary-ghost:#20355e; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial}
-    .wrap{max-width:720px;margin:0 auto;padding:16px 16px 92px;}
-    .card{background:var(--card);border-radius:14px;padding:18px 16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-    h1{margin:0 0 12px;font-size:34px;letter-spacing:.5px}
-    h2{margin:0 0 14px;font-size:24px}
-    label{display:block;margin:14px 0 6px;color:var(--muted);font-size:14px}
-    input{width:100%;box-sizing:border-box;background:#0f1317;border:1px solid #223042;color:var(--text);border-radius:10px;padding:14px 12px;font-size:16px;outline:none}
-    input:focus{border-color:#2c4b78}
-    .btn{display:block;width:100%;border:0;border-radius:12px;padding:14px 16px;font-size:18px;font-weight:600;background:var(--primary);color:#fff}
-    .btn.secondary{background:#263244}
-    .row{display:flex;gap:12px}
-    .row .col{flex:1}
-    .list{display:flex;flex-direction:column;gap:12px}
-    .list .item{display:flex;gap:12px;align-items:center;padding:14px;border-radius:12px;background:#12181d;border:1px solid #1f2730}
-    .item .icon{width:40px;height:40px;border-radius:10px;background:#0f151b;display:grid;place-items:center;font-size:20px}
-    .muted{color:var(--muted);font-size:14px}
-    .hidden{display:none}
+    :root{
+      --bg:#0b0e13; --card:#121720; --card-line:#1c2230;
+      --text:#e8eefb; --muted:#93a2bd; --primary:#4c8dff; --accent:#3b82f6;
+      --btn:#1b2331; --btn-line:#2a3549; --success:#3ecf8e;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font:16px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;
+      padding-bottom:86px; /* место для таббара */
+    }
+    h1,h2{margin:0 0 12px}
+    h1{font-size:32px; font-weight:800}
+    h2{font-size:24px; font-weight:800}
+    .muted{color:var(--muted)}
+    .wrap{max-width:980px; margin:0 auto; padding:18px 16px 28px}
 
-    /* нижняя навигация */
-    .tabbar{position:fixed;left:0;right:0;bottom:0;background:#0d1116;border-top:1px solid #1f2730;padding:8px 6px env(safe-area-inset-bottom);display:flex;gap:8px;justify-content:space-around}
-    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;color:var(--muted);font-size:12px;border:1px solid transparent;background:transparent}
-    .tab.active{color:#fff;border-color:#2a3542;background:#11161c}
-    .tab .emoji{font-size:20px;line-height:20px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--card-line);
+      border-radius:16px;
+      padding:18px;
+      box-shadow:0 8px 28px rgba(0,0,0,.25);
+    }
+    .row{display:flex; gap:12px}
+    .col{flex:1}
+
+    .input{
+      width:100%; height:48px; padding:0 14px; border-radius:12px;
+      background:#0e131b; color:var(--text);
+      border:1px solid var(--btn-line); outline:none;
+      -webkit-appearance:none; appearance:none;
+    }
+    .input::placeholder{color:#66738a}
+    input[type="date"].input{
+      padding:0 12px; text-transform:none;
+    }
+
+    .btn{
+      height:48px; padding:0 16px; border-radius:12px;
+      border:1px solid var(--btn-line); background:var(--btn);
+      color:var(--text); font-weight:700; cursor:pointer; width:100%;
+    }
+    .btn.primary{background:var(--primary); border-color:transparent; color:#fff}
+    .btn.secondary{background:#111827}
+    .btn.accent{background:var(--accent); color:#fff; border-color:transparent}
+    .btn.ghost{background:transparent}
+
+    .screen{display:none}
+    .screen.active{display:block}
+
+    /* таббар */
+    .tabbar{
+      position:fixed; left:0; right:0; bottom:0; z-index:50;
+      background:#0d121b; border-top:1px solid #1b2434;
+      display:flex; gap:10px; padding:10px 8px env(safe-area-inset-bottom);
+    }
+    .tab{
+      flex:1; border-radius:14px; border:1px solid #1f2a3e; background:#0d131e;
+      height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      color:#a9b5cc; font-weight:700;
+    }
+    .tab.active{border-color:#2b67ff; color:#fff; box-shadow:0 0 0 2px rgba(75,132,255,.12) inset}
+    .tab .ico{font-size:20px; line-height:20px}
+
+    /* bottom-sheet */
+    .sheet-overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.35); backdrop-filter:saturate(140%) blur(1px);
+      z-index:998;
+    }
+    .sheet{
+      position:fixed; left:0; right:0; bottom:0; z-index:999;
+      background:#111418; border-top-left-radius:16px; border-top-right-radius:16px;
+      padding:16px 16px 24px; box-shadow:0 -10px 30px rgba(0,0,0,.45);
+      transform:translateY(100%); transition:transform .25s ease;
+    }
+    .sheet.show{ transform:translateY(0); }
+    .sheet__grab{ width:44px; height:5px; border-radius:99px; background:#2a2f38; margin:0 auto 12px; }
+    .sheet__title{ font-weight:800; font-size:18px; margin-bottom:12px; }
+    .sheet__subtitle{ font-weight:600; margin:12px 0 8px; }
+    .sheet__block{ background:#0e1115; border:1px solid #1c212b; border-radius:12px; padding:12px; margin-bottom:12px; }
   </style>
 </head>
 <body>
   <div class="wrap">
+
     <!-- Профиль -->
-    <section id="screen-profile" class="screen">
+    <section id="screen-profile" class="screen active">
       <div class="card">
         <h1>Нарды</h1>
         <p class="muted">Перед игрой укажи данные профиля.</p>
-        <label>Имя</label>
-        <input id="name" placeholder="Например, Дима">
-        <label>Никнейм</label>
-        <input id="nick" placeholder="Например, didimka">
-        <label>Дата рождения</label>
-        <input id="dob" type="date">
-        <div style="height:14px"></div>
-        <button id="saveProfile" class="btn">Сохранить</button>
+
+        <div class="row" style="margin-top:8px">
+          <div class="col">
+            <div class="muted" style="margin:6px 0 6px">Имя</div>
+            <input id="name" class="input" placeholder="Например, Дима" autocomplete="name">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <div class="muted" style="margin:6px 0 6px">Никнейм</div>
+            <input id="nick" class="input" placeholder="Например, didimka">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col">
+            <div class="muted" style="margin:6px 0 6px">Дата рождения</div>
+            <input id="bday" class="input" type="date" placeholder="ДД.ММ.ГГГГ">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <div class="col">
+            <button id="btn-save-profile" class="btn primary">Сохранить</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Игры -->
-    <section id="screen-games" class="screen hidden">
+    <section id="screen-games" class="screen">
       <div class="card">
         <h2>Игры</h2>
-        <div class="list">
-          <div class="item" id="btnCreate">
-            <div class="icon">🎲</div>
-            <div>
-              <div style="font-weight:600">Создать игру</div>
-              <div class="muted">Начать новую комнату</div>
-            </div>
+
+        <div class="row" style="margin-top:8px">
+          <div class="col">
+            <button id="btn-create" class="btn primary">🎲 Создать игру</button>
           </div>
-          <div class="item" id="btnJoin">
-            <div class="icon">🔗</div>
-            <div style="flex:1">
-              <div style="font-weight:600">Присоединиться</div>
-              <div class="muted">Войти по коду комнаты</div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col"><input id="joinCode" placeholder="Код комнаты, например 7B7FX"></div>
-            <div class="col" style="max-width:140px"><button id="btnJoinGo" class="btn secondary">Войти</button></div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="col">
+            <button id="btn-open-join" class="btn secondary">🔗 Присоединиться</button>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Оформления -->
-    <section id="screen-themes" class="screen hidden">
+    <section id="screen-themes" class="screen">
       <div class="card">
         <h2>Оформления</h2>
-        <p class="muted">Скины доски и костей появятся здесь позже 👀</p>
+        <p class="muted">Скины доски и костей появятся тут позже.</p>
         <div style="height:10px"></div>
-        <button class="btn secondary" disabled>Скоро</button>
+        <button class="btn" disabled>Скоро</button>
       </div>
     </section>
+
   </div>
 
   <!-- Нижние вкладки -->
   <nav class="tabbar">
-    <button class="tab active" data-tab="profile"><div class="emoji">👤</div><div>Профиль</div></button>
-    <button class="tab" data-tab="games"><div class="emoji">🎮</div><div>Игры</div></button>
-    <button class="tab" data-tab="themes"><div class="emoji">🎨</div><div>Оформления</div></button>
+    <button class="tab active" data-tab="profile"><div class="ico">👤</div>Профиль</button>
+    <button class="tab" data-tab="games"><div class="ico">🎮</div>Игры</button>
+    <button class="tab" data-tab="themes"><div class="ico">🎨</div>Оформления</button>
   </nav>
 
-  <script src="tgapp.js?v=4" defer></script>
+  <!-- Overlay -->
+  <div id="sheet-overlay" class="sheet-overlay" hidden></div>
+
+  <!-- Bottom sheet: выбор способа входа -->
+  <div id="join-sheet" class="sheet" hidden aria-hidden="true" role="dialog">
+    <div class="sheet__grab"></div>
+    <div class="sheet__title">Как хочешь присоединиться?</div>
+
+    <div class="sheet__block">
+      <div class="sheet__subtitle">По коду комнаты</div>
+      <div class="row">
+        <div class="col">
+          <input id="joinCode" class="input" placeholder="Например, 7B7FX" maxlength="8" />
+        </div>
+        <div class="col" style="max-width:120px">
+          <button id="btn-join" class="btn primary">Войти</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet__block">
+      <div class="sheet__subtitle">Быстрый матч</div>
+      <p class="muted" style="margin-top:-6px">Подберём соперника онлайн.</p>
+      <button id="btn-quick" class="btn accent" style="width:100%">🚀 Искать соперника</button>
+    </div>
+
+    <button id="sheet-close" class="btn ghost" style="width:100%">Закрыть</button>
+  </div>
+
+  <script src="tgapp.js?v=10" defer></script>
 </body>
 </html>
