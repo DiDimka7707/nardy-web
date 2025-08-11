@@ -1,114 +1,135 @@
-// tgapp.js v7
-const tg = window.Telegram?.WebApp;
+// tgapp.js
 
-// --- утилиты профиля ---
-function getProfile() {
-  try { return JSON.parse(localStorage.getItem('profile') || '{}'); }
-  catch { return {}; }
-}
-function isProfileComplete() {
-  const p = getProfile();
-  return Boolean(p.name && p.nickname && p.dob);
-}
-function setActiveTab(id) {
-  document.querySelectorAll('section.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById('screen-' + id)?.classList.remove('hidden');
-  document.querySelectorAll('button.tab').forEach(b => b.classList.remove('active'));
-  document.querySelector(`button.tab[data-tab="${id}"]`)?.classList.add('active');
-}
-function toast(msg) {
-  if (tg?.showPopup) tg.showPopup({ title: 'Готово', message: msg, buttons: [{id:'ok', type:'ok'}] });
-  else alert(msg);
-}
+const SCREENS = ["profile","games","themes"];
 
-// --- инициализация ---
-document.addEventListener('DOMContentLoaded', () => {
-  // подсветим вкладку по умолчанию
-  setActiveTab('games');
+function qs(s,root=document){return root.querySelector(s)}
+function qsa(s,root=document){return [...root.querySelectorAll(s)]}
 
-  // включаем/выключаем игровые кнопки по заполненности профиля
-  syncButtons();
-
-  // вкладки
-  document.querySelectorAll('button.tab').forEach(btn => {
-    btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+function showTab(tab){
+  SCREENS.forEach(n=>{
+    const el = qs("#screen-"+n);
+    if (el) el.classList.toggle("active", n===tab);
   });
-
-  // сохранить профиль
-  const form = document.getElementById('profile-form');
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = (document.getElementById('name')?.value || '').trim();
-      const nickname = (document.getElementById('nickname')?.value || '').trim();
-      const dob = (document.getElementById('dob')?.value || '').trim();
-      localStorage.setItem('profile', JSON.stringify({ name, nickname, dob }));
-      syncButtons();
-      toast('Профиль сохранён ✅');
-    });
-  }
-
-  // СОЗДАТЬ ИГРУ
-  const btnCreate = document.getElementById('btnCreate');
-  if (btnCreate) {
-    btnCreate.addEventListener('click', () => {
-      if (!isProfileComplete()) {
-        setActiveTab('profile');
-        toast('Заполни профиль перед игрой 🙂');
-        return;
-      }
-      // отправляем боту
-      tg?.sendData?.(JSON.stringify({ type: 'create_room', payload: {} }));
-      toast('Запрос на создание комнаты отправлен боту.\nСмотри чат.');
-    });
-  }
-
-  // ОТКРЫТЬ БОТТОМ-ЛИСТ «ПРИСОЕДИНИТЬСЯ»
-  const btnJoinOpen = document.getElementById('btnJoinOpen');
-  if (btnJoinOpen) {
-    btnJoinOpen.addEventListener('click', () => {
-      if (!isProfileComplete()) {
-        setActiveTab('profile');
-        toast('Заполни профиль перед игрой 🙂');
-        return;
-      }
-      document.getElementById('joinSheet')?.classList.add('open');
-    });
-  }
-  document.getElementById('joinClose')?.addEventListener('click', () => {
-    document.getElementById('joinSheet')?.classList.remove('open');
+  qsa(".tabbar .tab").forEach(b=>{
+    b.classList.toggle("active", b.dataset.tab===tab);
   });
+  try{localStorage.setItem("last_tab", tab)}catch(e){}
+}
 
-  // ВОЙТИ ПО КОДУ
-  const btnJoinCode = document.getElementById('btnJoinCode');
-  if (btnJoinCode) {
-    btnJoinCode.addEventListener('click', () => {
-      const code = (document.getElementById('joinCode')?.value || '').trim().toUpperCase();
-      if (!code) { toast('Введи код комнаты'); return; }
-      tg?.sendData?.(JSON.stringify({ type: 'join_by_code', payload: { code } }));
-      toast('Пробуем войти по коду… смотри чат бота.');
-      document.getElementById('joinSheet')?.classList.remove('open');
-    });
-  }
-
-  // БЫСТРЫЙ МАТЧ
-  const btnQuick = document.getElementById('btnQuick');
-  if (btnQuick) {
-    btnQuick.addEventListener('click', () => {
-      tg?.sendData?.(JSON.stringify({ type: 'quick_match', payload: {} }));
-      toast('Ищем соперника… Я напишу в чат, когда кто-то найдётся.');
-      document.getElementById('joinSheet')?.classList.remove('open');
-    });
-  }
-});
-
-// включение/отключение игровых кнопок
-function syncButtons() {
-  const ready = isProfileComplete();
-  ['btnCreate','btnJoinOpen'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.disabled = !ready;
-    el.classList.toggle('disabled', !ready);
+function bindTabs(){
+  qsa(".tabbar .tab").forEach(btn=>{
+    btn.addEventListener("click", ()=> showTab(btn.dataset.tab));
   });
 }
+
+function toast(msg){ alert(msg); } // простая заглушка
+
+/* ===== Профиль ===== */
+function initProfile(){
+  const form = qs("#profile-form");
+  if(!form) return;
+  const name = qs("#name"), nick=qs("#nick"), dob=qs("#dob");
+
+  // заполним из localStorage
+  try{
+    const raw = localStorage.getItem("nardy_profile");
+    if(raw){
+      const p = JSON.parse(raw);
+      if(name) name.value = p.name || "";
+      if(nick) nick.value = p.nick || "";
+      if(dob)  dob.value  = p.dob  || "";
+    }
+  }catch(e){}
+
+  form.addEventListener("submit",(ev)=>{
+    ev.preventDefault();
+    const data = {
+      name: (name?.value || "").trim(),
+      nick: (nick?.value || "").trim(),
+      dob:  (dob?.value  || "")
+    };
+    try{ localStorage.setItem("nardy_profile", JSON.stringify(data)); }catch(e){}
+    toast("Готово\nПрофиль сохранён ✅");
+  });
+}
+
+/* ===== Игры ===== */
+function randCode(len=5){
+  const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих символов
+  let s=""; for(let i=0;i<len;i++) s+=a[Math.floor(Math.random()*a.length)];
+  return s;
+}
+
+function openOverlay(){ qs("#overlay")?.classList.add("show"); }
+function closeOverlay(){ qs("#overlay")?.classList.remove("show"); }
+
+function openSheet(id){
+  openOverlay();
+  const el = qs("#"+id);
+  if(el){ el.classList.add("show"); el.setAttribute("aria-hidden","false"); }
+}
+function closeSheets(){
+  closeOverlay();
+  qsa(".sheet").forEach(el=>{el.classList.remove("show"); el.setAttribute("aria-hidden","true");});
+}
+
+function initGames(){
+  // создать игру
+  const createBtn = qs("#btn-create");
+  createBtn?.addEventListener("click", ()=>{
+    const code = randCode();
+    const slot = qs("#created-code");
+    if(slot) slot.textContent = code;
+    openSheet("sheet-created");
+  });
+
+  // копировать код
+  qs("#btn-copy")?.addEventListener("click", async()=>{
+    const txt = qs("#created-code")?.textContent?.trim() || "";
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast("Код скопирован: "+txt);
+    }catch(e){
+      toast("Скопируй код вручную: "+txt);
+    }
+  });
+
+  // открыть join-sheet
+  qs("#btn-join-open")?.addEventListener("click", ()=> openSheet("sheet-join"));
+
+  // войти по коду
+  qs("#btn-join")?.addEventListener("click", ()=>{
+    const code = (qs("#joinCode")?.value || "").toUpperCase().trim();
+    if(code.length < 4){ toast("Введи корректный код комнаты"); return; }
+    // здесь можно отправить событие в бота через WebApp API — пока просто показ.
+    toast("Пробуем войти в комнату: "+code);
+    closeSheets();
+  });
+
+  // быстрый матч
+  qs("#btn-mm")?.addEventListener("click", ()=>{
+    toast("Матчмейкинг скоро будет 👀");
+    closeSheets();
+  });
+
+  // закрытие листов
+  qs("#overlay")?.addEventListener("click", closeSheets);
+  qsa("[data-close]").forEach(b=> b.addEventListener("click", closeSheets));
+}
+
+/* ===== Старт ===== */
+function init(){
+  try{ window.Telegram?.WebApp?.ready?.(); }catch(e){}
+  bindTabs();
+  initProfile();
+  initGames();
+
+  let start = "games";
+  try{
+    const last = localStorage.getItem("last_tab");
+    if(SCREENS.includes(last)) start = last;
+  }catch(e){}
+  showTab(start);
+}
+
+document.addEventListener("DOMContentLoaded", init);
