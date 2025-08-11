@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nardy Mini App</title>
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    html,body{margin:0;padding:0;height:100%;font-family:system-ui,Arial}
+    body{background:#0b0e14;color:#e6e6e6;display:flex;align-items:center;justify-content:center}
+    .wrap{max-width:420px;padding:24px;text-align:center}
+    .btn{border:0;padding:14px 18px;border-radius:12px;font-size:16px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Нарды</h1>
+    <p>Мини-приложение подключено ✅</p>
+    <button id="start" class="btn">Бросить кости</button>
+  </div>
+  <script src="tgapp.js"></script>
+</body>
+</html>
