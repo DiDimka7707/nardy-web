@@ -1,88 +1,97 @@
-// Инициализация Telegram WebApp
-const tg = window.Telegram?.WebApp;
-try { tg?.expand(); tg?.enableClosingConfirmation?.(); } catch(e){}
+document.addEventListener('DOMContentLoaded', () => {
+  const tg = window.Telegram?.WebApp;
 
-// ======= Навигация вкладок =======
-const sections = {
-  profile: document.getElementById('screen-profile'),
-  games: document.getElementById('screen-games'),
-  themes: document.getElementById('screen-themes'),
-};
-const tabs = Array.from(document.querySelectorAll('[data-tab]'));
-
-function showTab(name) {
-  Object.entries(sections).forEach(([key, el]) => {
-    el.classList.toggle('hidden', key !== name);
-  });
-  tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
-  localStorage.setItem('nardy:tab', name);
-}
-
-tabs.forEach(btn => {
-  btn.addEventListener('click', () => showTab(btn.dataset.tab));
-});
-
-// восстановим последнюю вкладку
-showTab(localStorage.getItem('nardy:tab') || 'profile');
-
-// ======= Профиль (локальное хранение) =======
-const inpName = document.getElementById('name');
-const inpNick = document.getElementById('nick');
-const inpDob  = document.getElementById('dob');
-const btnSave = document.getElementById('saveProfile');
-
-const PROFILE_KEY = 'nardy:profile';
-
-function loadProfile() {
-  const raw = localStorage.getItem(PROFILE_KEY);
-  if (!raw) return;
+  // раскрыть webapp и поставить тему
   try {
-    const p = JSON.parse(raw);
-    if (p.name) inpName.value = p.name;
-    if (p.nick) inpNick.value = p.nick;
-    if (p.dob)  inpDob.value  = p.dob;
+    tg?.expand();
+    tg?.MainButton?.hide();
+    tg?.HapticFeedback?.impactOccurred?.('light');
   } catch(e){}
-}
-function saveProfile() {
-  const p = {
-    name: (inpName.value || '').trim(),
-    nick: (inpNick.value || '').trim(),
-    dob:  (inpDob.value  || '').trim(),
+
+  // --- вкладки
+  const screens = {
+    profile: document.getElementById('screen-profile'),
+    games:   document.getElementById('screen-games'),
+    themes:  document.getElementById('screen-themes'),
   };
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-  tg?.showPopup?.({
-    title: 'Готово',
-    message: 'Профиль сохранён ✅',
-    buttons: [{type:'ok'}]
+  const tabs = Array.from(document.querySelectorAll('.tabbar .tab'));
+  function show(tab){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    tabs.forEach(t => t.classList.remove('active'));
+    screens[tab]?.classList.add('active');
+    tabs.find(t=>t.dataset.tab===tab)?.classList.add('active');
+    // лёгкий шевел хаптика
+    try{ tg?.HapticFeedback?.selectionChanged?.(); }catch(e){}
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+
+  // --- профиль (localStorage)
+  const $ = sel => document.querySelector(sel);
+  const name = $('#name');
+  const nick = $('#nick');
+  const bday = $('#bday');
+
+  const LS_KEY = 'nardy.profile.v1';
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+  if (saved){
+    name.value = saved.name || '';
+    nick.value = saved.nick || '';
+    bday.value = saved.bday || '';
+  }
+
+  $('#btn-save-profile')?.addEventListener('click', () => {
+    const data = {
+      name: (name.value || '').trim(),
+      nick: (nick.value || '').trim(),
+      bday: (bday.value || '').trim(),
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    try {
+      tg?.showPopup?.({title:'Готово', message:'Профиль сохранён ✅', buttons:[{type:'close'}]});
+    } catch(e) {
+      alert('Профиль сохранён ✅');
+    }
+    try{ tg?.HapticFeedback?.notificationOccurred?.('success'); }catch(e){}
   });
-}
-btnSave.addEventListener('click', saveProfile);
-loadProfile();
 
-// ======= Игры: отправка действий в бота =======
-function sendToBot(action, payload) {
-  try {
-    tg?.sendData?.(JSON.stringify({ action, payload }));
-  } catch(e) {
-    console.error('sendData error', e);
-  }
-}
+  // --- bottom-sheet (присоединиться)
+  const overlay   = document.getElementById('sheet-overlay');
+  const sheet     = document.getElementById('join-sheet');
+  const openJoin  = document.getElementById('btn-open-join');
+  const closeJoin = document.getElementById('sheet-close');
 
-document.getElementById('btnCreate').addEventListener('click', () => {
-  // можно приложить профиль к событию
-  const profile = localStorage.getItem(PROFILE_KEY);
-  sendToBot('create_room', { profile: profile ? JSON.parse(profile) : null });
-});
+  const btnCreate = document.getElementById('btn-create');
+  const btnJoin   = document.getElementById('btn-join');
+  const btnQuick  = document.getElementById('btn-quick');
+  const inputCode = document.getElementById('joinCode');
 
-document.getElementById('btnJoin').addEventListener('click', () => {
-  document.getElementById('joinCode').focus();
-});
+  const openSheet  = () => { sheet.hidden=false; overlay.hidden=false; setTimeout(()=>sheet.classList.add('show'), 0); };
+  const closeSheet = () => { sheet.classList.remove('show'); setTimeout(()=>{sheet.hidden=true; overlay.hidden=true;}, 200); };
 
-document.getElementById('btnJoinGo').addEventListener('click', () => {
-  const raw = document.getElementById('joinCode').value.trim();
-  if (!raw) {
-    tg?.showAlert?.('Введите код комнаты');
-    return;
-  }
-  sendToBot('join_room', { code: raw });
+  openJoin?.addEventListener('click', openSheet);
+  closeJoin?.addEventListener('click', closeSheet);
+  overlay?.addEventListener('click', closeSheet);
+
+  // Создать игру → бот
+  btnCreate?.addEventListener('click', () => {
+    tg?.openTelegramLink('https://t.me/NardyClassicBot?start=newgame');
+  });
+
+  // Присоединиться по коду
+  btnJoin?.addEventListener('click', () => {
+    const code = (inputCode?.value || '').trim().toUpperCase();
+    if (!code){
+      try { tg?.showPopup?.({title:'Введите код', message:'Например: 7B7FX', buttons:[{type:'close'}]}); }
+      catch(e){ alert('Введите код комнаты (например 7B7FX)'); }
+      return;
+    }
+    tg?.openTelegramLink(`https://t.me/NardyClassicBot?start=join_${code}`);
+    closeSheet();
+  });
+
+  // Быстрый матч
+  btnQuick?.addEventListener('click', () => {
+    tg?.openTelegramLink('https://t.me/NardyClassicBot?start=quick');
+    closeSheet();
+  });
 });
