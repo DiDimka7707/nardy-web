@@ -2,104 +2,98 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <meta name="theme-color" content="#0f1115" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Нарды</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="manifest" href="manifest.json" />
   <style>
-    :root{--bg:#0f1115;--card:#1a1f29;--text:#e6e8ee;--muted:#9aa3b2;--accent:#2f6fed;--accent-2:#3a82ff;--tab:#151922}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial}
-    .wrap{min-height:100vh;padding:16px 16px 88px}
-    .card{background:var(--card);border-radius:18px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    h1{margin:0 0 10px;font-size:34px;letter-spacing:.3px}
-    .muted{color:var(--muted)}
-    .field{margin-top:16px}
-    .label{font-size:14px;margin-bottom:8px;color:var(--muted)}
-    input{width:100%;background:#0e121a;border:1px solid #2a3140;color:var(--text);
-      border-radius:12px;padding:14px 16px;font-size:16px;outline:none}
-    input:focus{border-color:var(--accent)}
-    .btn{display:block;width:100%;margin-top:20px;padding:16px 18px;border:0;border-radius:14px;
-      background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:18px}
-    .grid{display:grid;gap:12px}
-    .games .gbtn{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#111621;border:1px solid #232a38;border-radius:14px}
-    .games .gbtn b{font-size:16px}
-    .icon{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#1f2735;font-size:18px}
-    .center{display:grid;place-items:center;height:220px;color:var(--muted)}
-    /* Tabs */
-    .tabs{position:fixed;left:0;right:0;bottom:0;background:var(--tab);border-top:1px solid #202630;display:flex}
-    .tab-btn{flex:1;padding:12px 8px;text-align:center;color:var(--muted);font-weight:600}
-    .tab-btn.active{color:#fff}
-    .tab-btn .t-ic{font-size:20px;display:block;margin-bottom:4px}
-    /* Screens */
-    .screen{display:none;animation:fade .15s} .screen.active{display:block}
-    @keyframes fade{from{opacity:.6;transform:translateY(4px)}}
+    :root { --bg:#111418; --card:#1a1f24; --text:#e8ecf1; --muted:#a9b3bd; --primary:#4c8dff; --primary-ghost:#20355e; }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial}
+    .wrap{max-width:720px;margin:0 auto;padding:16px 16px 92px;}
+    .card{background:var(--card);border-radius:14px;padding:18px 16px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    h1{margin:0 0 12px;font-size:34px;letter-spacing:.5px}
+    h2{margin:0 0 14px;font-size:24px}
+    label{display:block;margin:14px 0 6px;color:var(--muted);font-size:14px}
+    input{width:100%;box-sizing:border-box;background:#0f1317;border:1px solid #223042;color:var(--text);border-radius:10px;padding:14px 12px;font-size:16px;outline:none}
+    input:focus{border-color:#2c4b78}
+    .btn{display:block;width:100%;border:0;border-radius:12px;padding:14px 16px;font-size:18px;font-weight:600;background:var(--primary);color:#fff}
+    .btn.secondary{background:#263244}
+    .row{display:flex;gap:12px}
+    .row .col{flex:1}
+    .list{display:flex;flex-direction:column;gap:12px}
+    .list .item{display:flex;gap:12px;align-items:center;padding:14px;border-radius:12px;background:#12181d;border:1px solid #1f2730}
+    .item .icon{width:40px;height:40px;border-radius:10px;background:#0f151b;display:grid;place-items:center;font-size:20px}
+    .muted{color:var(--muted);font-size:14px}
+    .hidden{display:none}
+
+    /* нижняя навигация */
+    .tabbar{position:fixed;left:0;right:0;bottom:0;background:#0d1116;border-top:1px solid #1f2730;padding:8px 6px env(safe-area-inset-bottom);display:flex;gap:8px;justify-content:space-around}
+    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;color:var(--muted);font-size:12px;border:1px solid transparent;background:transparent}
+    .tab.active{color:#fff;border-color:#2a3542;background:#11161c}
+    .tab .emoji{font-size:20px;line-height:20px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <!-- ПРОФИЛЬ -->
-    <section id="screen-profile" class="screen active">
+    <!-- Профиль -->
+    <section id="screen-profile" class="screen">
       <div class="card">
         <h1>Нарды</h1>
-        <div class="muted">Перед игрой укажи данные профиля.</div>
-
-        <div class="field">
-          <div class="label">Имя</div>
-          <input id="inp-name" placeholder="Например, Дима" />
-        </div>
-
-        <div class="field">
-          <div class="label">Никнейм</div>
-          <input id="inp-nick" placeholder="Например, didimka" />
-        </div>
-
-        <div class="field">
-          <div class="label">Дата рождения</div>
-          <input id="inp-birth" type="date" />
-        </div>
-
-        <button id="btn-save" class="btn">Сохранить</button>
+        <p class="muted">Перед игрой укажи данные профиля.</p>
+        <label>Имя</label>
+        <input id="name" placeholder="Например, Дима">
+        <label>Никнейм</label>
+        <input id="nick" placeholder="Например, didimka">
+        <label>Дата рождения</label>
+        <input id="dob" type="date">
+        <div style="height:14px"></div>
+        <button id="saveProfile" class="btn">Сохранить</button>
       </div>
     </section>
 
-    <!-- ИГРЫ -->
-    <section id="screen-games" class="screen">
+    <!-- Игры -->
+    <section id="screen-games" class="screen hidden">
       <div class="card">
-        <h1>Игры</h1>
-        <div class="grid games">
-          <button class="gbtn" id="createGameBtn">
+        <h2>Игры</h2>
+        <div class="list">
+          <div class="item" id="btnCreate">
             <div class="icon">🎲</div>
-            <div><b>Создать игру</b><div class="muted">Начать новую комнату</div></div>
-          </button>
-
-          <button class="gbtn" id="joinGameBtn">
+            <div>
+              <div style="font-weight:600">Создать игру</div>
+              <div class="muted">Начать новую комнату</div>
+            </div>
+          </div>
+          <div class="item" id="btnJoin">
             <div class="icon">🔗</div>
-            <div><b>Присоединиться</b><div class="muted">Войти по коду комнаты</div></div>
-          </button>
+            <div style="flex:1">
+              <div style="font-weight:600">Присоединиться</div>
+              <div class="muted">Войти по коду комнаты</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col"><input id="joinCode" placeholder="Код комнаты, например 7B7FX"></div>
+            <div class="col" style="max-width:140px"><button id="btnJoinGo" class="btn secondary">Войти</button></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ОФОРМЛЕНИЯ -->
-    <section id="screen-themes" class="screen">
+    <!-- Оформления -->
+    <section id="screen-themes" class="screen hidden">
       <div class="card">
-        <h1>Оформления</h1>
-        <div class="center">Магазин тем скоро ✨</div>
+        <h2>Оформления</h2>
+        <p class="muted">Скины доски и костей появятся здесь позже 👀</p>
+        <div style="height:10px"></div>
+        <button class="btn secondary" disabled>Скоро</button>
       </div>
     </section>
   </div>
 
-  <!-- Нижнее меню -->
-  <nav class="tabs">
-    <button class="tab-btn active" data-screen="profile">
-      <span class="t-ic">👤</span>Профиль
-    </button>
-    <button class="tab-btn" data-screen="games">
-      <span class="t-ic">🎮</span>Игры
-    </button>
-    <button class="tab-btn" data-screen="themes">
-      <span class="t-ic">🎨</span>Оформления
-    </button>
+  <!-- Нижние вкладки -->
+  <nav class="tabbar">
+    <button class="tab active" data-tab="profile"><div class="emoji">👤</div><div>Профиль</div></button>
+    <button class="tab" data-tab="games"><div class="emoji">🎮</div><div>Игры</div></button>
+    <button class="tab" data-tab="themes"><div class="emoji">🎨</div><div>Оформления</div></button>
   </nav>
 
   <script src="tgapp.js"></script>
