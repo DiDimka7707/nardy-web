@@ -1,128 +1,86 @@
-// Telegram WebApp bootstrap
 const tg = window.Telegram.WebApp;
-tg.ready();
 tg.expand();
 
-// Тема из Telegram
-function applyTheme() {
-  const dark = (tg.colorScheme || 'dark') === 'dark';
-  document.documentElement.style.setProperty('--bg', dark ? '#0e1116' : '#f6f7fb');
-  document.documentElement.style.setProperty('--fg', dark ? '#e8ecf1' : '#121417');
-  document.documentElement.style.setProperty('--muted', dark ? '#9aa4b2' : '#5b6676');
-  document.documentElement.style.setProperty('--card', dark ? '#151a22' : '#ffffff');
-}
-applyTheme();
-tg.onEvent('themeChanged', applyTheme);
+// --- элементы страниц ---
+const pages = {
+  account: document.getElementById('page-account'),
+  games: document.getElementById('page-games'),
+  themes: document.getElementById('page-themes'),
+};
+const tabs = [...document.querySelectorAll('.tabbar .tab')];
 
-// UI элементы
-const $auth = document.getElementById('auth');
-const $game = document.getElementById('game');
-const $hello = document.getElementById('hello');
-const $dice = document.getElementById('dice');
+// --- профиль ---
+const nameI = document.getElementById('name');
+const nickI = document.getElementById('nickname');
+const dobI  = document.getElementById('dob');
+const saveBtn = document.getElementById('saveBtn');
 
-const $name = document.getElementById('name');
-const $nick = document.getElementById('nick');
-const $dob  = document.getElementById('dob');
-
-const $nameErr = document.getElementById('nameErr');
-const $nickErr = document.getElementById('nickErr');
-const $dobErr  = document.getElementById('dobErr');
-
-// Хелперы
-const user = (tg.initDataUnsafe && tg.initDataUnsafe.user) || null;
-
-function showAuth() {
-  $auth.style.display = 'block';
-  $game.style.display = 'none';
-  tg.MainButton.setParams({ text: 'Сохранить' });
-  tg.MainButton.show();
-}
-
-function showGame(profile) {
-  $auth.style.display = 'none';
-  $game.style.display = 'block';
-  const name = profile?.name || user?.first_name || 'Игрок';
-  $hello.innerHTML = `Привет, <b>${name}</b>! Мини-приложение подключено <span class="ok">✔</span>`;
-  tg.MainButton.setParams({ text: 'Играть' });
-  tg.MainButton.show();
-}
-
-// Валидация
-const rxNick = /^[a-zA-Z0-9_]{3,20}$/;
-
-function validateProfile() {
-  let ok = true;
-
-  const name = ($name.value || '').trim();
-  const nick = ($nick.value || '').trim();
-  const dob  = $dob.value;
-
-  $nameErr.style.display = (name.length >= 2 && name.length <= 40) ? 'none' : (ok=false,'block');
-  $nickErr.style.display = rxNick.test(nick) ? 'none' : (ok=false,'block');
-  const validDob = !!dob && !Number.isNaN(Date.parse(dob));
-  $dobErr.style.display  = validDob ? 'none' : (ok=false,'block');
-
-  return ok ? { name, nickname: nick, dob } : null;
-}
-
-// Сохранение/загрузка профиля
-function saveProfile(p) {
-  localStorage.setItem('nardy_profile', JSON.stringify(p));
-}
-function loadProfile() {
-  try { return JSON.parse(localStorage.getItem('nardy_profile') || 'null'); }
-  catch { return null; }
-}
-
-// Бросок кости
-function rollDice() {
-  if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-  $dice.classList.add('roll');
-  setTimeout(() => {
-    const val = Math.floor(Math.random() * 6) + 1;
-    const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-    $dice.textContent = faces[val - 1];
-    $dice.classList.remove('roll');
-  }, 180);
-}
-
-// Логика главной кнопки
-let mode = 'auth'; // 'auth' | 'play'
-
-tg.onEvent('mainButtonClicked', () => {
-  if (mode === 'auth') {
-    const profile = validateProfile();
-    if (!profile) {
-      // Покажем системный алерт
-      if (tg.showAlert) tg.showAlert('Проверь заполнение полей');
-      return;
-    }
-
-    saveProfile(profile);
-
-    // Отправим в бота, если запущено из бота
-    try {
-      if (tg.initData && tg.sendData) {
-        tg.sendData(JSON.stringify({ type: 'profile', ...profile }));
-      }
-    } catch(_) {}
-
-    mode = 'play';
-    showGame(profile);
-    if (tg.showPopup) tg.showPopup({ title: 'Готово', message: 'Профиль сохранён' });
-  } else {
-    rollDice();
-  }
-});
-
-// Первичная инициализация
-(function init() {
-  const profile = loadProfile();
-  if (profile) {
-    mode = 'play';
-    showGame(profile);
-  } else {
-    mode = 'auth';
-    showAuth();
+// загрузка сохранённого
+(function initProfile(){
+  const raw = localStorage.getItem('profile');
+  if (raw){
+    try{
+      const p = JSON.parse(raw);
+      nameI.value = p.name || '';
+      nickI.value = p.nickname || '';
+      dobI.value  = p.dob || '';
+    }catch{}
   }
 })();
+
+function saveProfile(){
+  const name = nameI.value.trim();
+  const nickname = nickI.value.trim();
+  const dob = dobI.value;
+
+  if (!name || !nickname || !dob){
+    tg.showAlert('Заполни все поля');
+    return;
+  }
+  localStorage.setItem('profile', JSON.stringify({name, nickname, dob}));
+
+  // отправим в бот (ловим в on_webapp_data)
+  tg.sendData(JSON.stringify({type:'profile', name, nickname, dob}));
+
+  tg.showPopup({title:'Готово', message:'Профиль сохранён ✅'});
+}
+
+// --- игры / кубик ---
+const diceBtn = document.getElementById('diceBtn');
+const diceOut = document.getElementById('diceOut');
+
+function rollDice(){
+  const a = 1 + Math.floor(Math.random()*6);
+  const b = 1 + Math.floor(Math.random()*6);
+  diceOut.textContent = `Выпало: ${a} и ${b}`;
+  // при желании — отправим результат в бот
+  // tg.sendData(JSON.stringify({type:'dice', a, b}));
+}
+
+// --- вкладки ---
+function switchTab(tab){
+  Object.keys(pages).forEach(k => pages[k].hidden = (k !== tab));
+  tabs.forEach(b => b.classList.toggle('is-active', b.dataset.tab === tab));
+  localStorage.setItem('tab', tab);
+
+  // MainButton под конкретный раздел
+  tg.MainButton.offClick(); // очистим прошлые обработчики
+  if (tab === 'account'){
+    tg.MainButton.setText('Сохранить');
+    tg.MainButton.onClick(saveProfile);
+    tg.MainButton.show();
+  } else if (tab === 'games'){
+    tg.MainButton.setText('Бросить кости');
+    tg.MainButton.onClick(rollDice);
+    tg.MainButton.show();
+  } else {
+    tg.MainButton.hide();
+  }
+}
+
+tabs.forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+saveBtn.addEventListener('click', saveProfile);
+diceBtn.addEventListener('click', rollDice);
+
+// стартовая вкладка
+switchTab(localStorage.getItem('tab') || 'account');
