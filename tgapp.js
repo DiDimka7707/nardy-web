@@ -1,104 +1,95 @@
-// Telegram WebApp helper
-const tg = window.Telegram ? window.Telegram.WebApp : null;
-if (tg) {
-  tg.ready();
-  tg.expand(); // высота на весь экран
-}
+// tgapp.js
+// Инициализация Telegram Mini Apps
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+tg.setHeaderColor("secondary");
+tg.setBackgroundColor("#0f141a");
 
-// ===== Локальное хранилище профиля =====
-const LS_KEY = "nardy_profile";
+// ---------- Хранилище профиля ----------
+const STORE_KEY = "nardy_profile_v1";
 function loadProfile() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
-  catch { return {}; }
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch { return {}; }
 }
-function saveProfile(obj) {
-  localStorage.setItem(LS_KEY, JSON.stringify(obj));
-}
+function saveProfile(p) { localStorage.setItem(STORE_KEY, JSON.stringify(p || {})); }
 
-// ===== Элементы =====
-const scrProfile = document.getElementById("screen-profile");
-const scrGames   = document.getElementById("screen-games");
-const scrThemes  = document.getElementById("screen-themes");
-
-const inpName  = document.getElementById("inp-name");
-const inpNick  = document.getElementById("inp-nick");
-const inpBirth = document.getElementById("inp-birth");
-const btnSave  = document.getElementById("btn-save");
-
-const createGameBtn = document.getElementById("createGameBtn");
-const joinGameBtn   = document.getElementById("joinGameBtn");
-
-const tabs = [...document.querySelectorAll(".tab-btn")];
-const screens = {
-  profile: scrProfile,
-  games: scrGames,
-  themes: scrThemes,
+// ---------- UI ----------
+const tabs = {
+  profile: document.getElementById("tab-profile"),
+  games: document.getElementById("tab-games"),
+  skins: document.getElementById("tab-skins"),
 };
 
-// ===== Навигация по вкладкам =====
-function showScreen(name) {
-  Object.values(screens).forEach(el => el.classList.remove("active"));
-  screens[name].classList.add("active");
-  tabs.forEach(t => t.classList.toggle("active", t.dataset.screen === name));
-  localStorage.setItem("nardy_tab", name);
-}
-tabs.forEach(t => t.addEventListener("click", () => showScreen(t.dataset.screen)));
-
-// ===== Инициализация формы профиля =====
-(function initProfileUI() {
-  const p = loadProfile();
-  if (p.name)  inpName.value  = p.name;
-  if (p.nick)  inpNick.value  = p.nick;
-  if (p.birth) inpBirth.value = p.birth; // yyyy-mm-dd
-
-  btnSave.addEventListener("click", () => {
-    const profile = {
-      name:  inpName.value.trim(),
-      nick:  inpNick.value.trim(),
-      birth: inpBirth.value, // yyyy-mm-dd
-      // полезно знать ID пользователя TG:
-      userId: tg?.initDataUnsafe?.user?.id || null,
-    };
-    saveProfile(profile);
-
-    if (tg?.showPopup) {
-      tg.showPopup({
-        title: "Готово",
-        message: "Профиль сохранён ✅",
-        buttons: [{ type: "close", text: "Закрыть" }],
-      });
-    } else {
-      alert("Профиль сохранён ✅");
-    }
+function selectTab(name) {
+  Object.entries(tabs).forEach(([k, el]) => {
+    if (!el) return;
+    el.style.display = k === name ? "block" : "none";
+    const btn = document.querySelector(`[data-tab="${k}"]`);
+    if (btn) btn.classList.toggle("active", k === name);
   });
+}
+document.querySelectorAll("[data-tab]").forEach((b) =>
+  b.addEventListener("click", () => selectTab(b.dataset.tab))
+);
+
+// ---------- Профиль ----------
+(function initProfile() {
+  const p = loadProfile();
+  const name = document.getElementById("name");
+  const nick = document.getElementById("nick");
+  const bday = document.getElementById("bday");
+  const saveBtn = document.getElementById("saveProfile");
+
+  if (name) name.value = p.name || "";
+  if (nick) nick.value = p.nick || "";
+  if (bday) bday.value = p.bday || "";
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      const np = { name: name.value.trim(), nick: nick.value.trim(), bday: bday.value };
+      saveProfile(np);
+      tg.showPopup({ title: "Готово", message: "Профиль сохранён ✅", buttons: [{ type: "close", text: "Закрыть" }] });
+    });
+  }
 })();
 
-// ===== Экран ИГРЫ: отправка в бота =====
+// ---------- Связь с ботом ----------
 function sendToBot(payload) {
-  if (!tg) {
-    alert("Открой мини-приложение из Telegram, чтобы играть.");
-    return;
-  }
-  const data = JSON.stringify(payload);
-  tg.sendData(data); // прилетит в web_app_data
+  // Отправляем данные боту (update.message.web_app_data)
+  tg.HapticFeedback?.impactOccurred("light");
+  tg.sendData(JSON.stringify(payload));
+  // Закрывать не обязательно, но обычно удобно:
+  // tg.close();
 }
 
-createGameBtn.addEventListener("click", () => {
-  sendToBot({ action: "newgame" });
-});
+// ---------- Игры: действия ----------
+const btnCreate = document.getElementById("btn-create");
+const btnJoin = document.getElementById("btn-join");
 
-joinGameBtn.addEventListener("click", () => {
-  let code = prompt("Введите код комнаты (например, 7B7FX):");
-  if (code) {
-    code = code.trim().toUpperCase();
-    sendToBot({ action: "join", code });
-  }
-});
+if (btnCreate) {
+  btnCreate.addEventListener("click", () => {
+    const profile = loadProfile();
+    sendToBot({ t: "create_room", profile });     // бот создаст комнату и пришлёт код
+  });
+}
 
-// ===== Стартовый экран =====
-(function startRoute() {
-  const saved = localStorage.getItem("nardy_tab");
-  const p = loadProfile();
-  // если профиль уже заполнен — открываем «Игры», иначе «Профиль»
-  showScreen(saved || (p.name || p.nick || p.birth ? "games" : "profile"));
-})();
+if (btnJoin) {
+  btnJoin.addEventListener("click", async () => {
+    const code = await tg.showPopup({
+      title: "Вход по коду",
+      message: "Введи код комнаты (например: 7B7FX)",
+      buttons: [{ type: "input", text: "ОК" }, { type: "cancel", text: "Отмена" }],
+    });
+    // В мобильном Telegram showPopup с input возвращает text в tg.onEvent('popupClosed') — упростим:
+  });
+  // Фолбек через prompt для всех клиентов:
+  btnJoin.addEventListener("click", () => {
+    const code = prompt("Код комнаты:");
+    if (code && code.trim()) {
+      sendToBot({ t: "join_room", code: code.trim().toUpperCase() });
+    }
+  }, { once: true });
+}
+
+// Стартовая вкладка
+selectTab("games");
