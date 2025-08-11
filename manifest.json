@@ -1,9 +1,9 @@
 {
-  "name": "Nardy",
-  "short_name": "Nardy",
+  "name": "Нарды Классика",
+  "short_name": "Нарды",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0b0e14",
-  "theme_color": "#0b0e14",
+  "background_color": "#0f1116",
+  "theme_color": "#0f1116",
   "icons": []
 }
