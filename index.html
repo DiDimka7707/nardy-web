@@ -2,204 +2,147 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Нарды Классика</title>
-  <meta name="theme-color" content="#0f1116"/>
-  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f1116" />
+  <link rel="manifest" href="manifest.json" />
   <style>
     :root{
-      --bg: var(--tg-theme-bg-color, #0f1116);
-      --card: rgba(255,255,255,.04);
-      --text: var(--tg-theme-text-color, #e7eaf0);
-      --muted: #98a2b3;
-      --primary: var(--tg-theme-button-color, #2f6df1);
-      --primary-text: var(--tg-theme-button-text-color,#fff);
-      --border: rgba(255,255,255,.08);
-      --shadow: 0 6px 24px rgba(0,0,0,.35);
-      --radius: 16px;
+      --bg:#0f1116;--panel:#161a22;--panel-2:#1b2030;--text:#e5ebf1;--muted:#9aa4b2;
+      --primary:#4d86ff;--primary-2:#3b6de0;--card:#121622;--ok:#24c47c;
+      --border:rgba(255,255,255,.06)
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0; padding:16px 16px 96px;
-      background:var(--bg); color:var(--text);
-      font: 16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
-    }
-    h1,h2,h3{margin:0 0 12px}
-    .muted{color:var(--muted)}
-    .screen{display:none}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{min-height:100dvh;display:flex;flex-direction:column}
+    header{position:sticky;top:0;z-index:4;padding:14px 18px;background:linear-gradient(180deg,rgba(15,17,22,.9),rgba(15,17,22,.75) 60%,rgba(15,17,22,0))}
+    h1,h2{margin:0 0 10px}
+    h1{font-size:42px;letter-spacing:.5px}
+    h2{font-size:22px}
+    .content{flex:1;display:flex;justify-content:center;align-items:flex-start;padding:14px}
+    .screen{width:100%;max-width:720px;display:none}
     .screen.active{display:block}
-    .card{
-      background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
-    }
-    .row{display:flex; gap:12px; align-items:center}
-    .row + .row{margin-top:10px}
-    .btn{
-      appearance:none; border:0; cursor:pointer;
-      border-radius:14px; padding:14px 18px; font-weight:600;
-      background:#1d2330; color:var(--text);
-    }
-    .btn.primary{background:var(--primary); color:var(--primary-text)}
-    .btn.secondary{background:#1a1f2b}
-    .btn:disabled{opacity:.55; cursor:not-allowed}
-    input,select{width:100%; background:#0f1320; color:var(--text);
-      border:1px solid var(--border); border-radius:12px; padding:14px;
-      outline:none}
-    input::placeholder{color:#667085}
-    input[type="date"]{color-scheme:dark}
-    .list{
-      display:flex; flex-direction:column; gap:12px;
-    }
-    .entry{
-      display:flex; gap:14px; align-items:center;
-      background:#121725; border:1px solid var(--border);
-      border-radius:14px; padding:16px 18px;
-    }
-    .entry .title{font-weight:700}
-    .entry .sub{color:var(--muted); font-size:14px}
-    .entry .icon{width:40px; height:40px; display:grid; place-items:center; font-size:22px; background:#0e1320; border-radius:12px; border:1px solid var(--border)}
-    /* bottom tabbar */
-    .tabbar{
-      position:fixed; left:0; right:0; bottom:0; padding:10px 10px calc(env(safe-area-inset-bottom,0) + 10px);
-      background:linear-gradient(to top, rgba(4,6,10,.85), rgba(4,6,10,.85));
-      backdrop-filter:saturate(120%) blur(10px);
-      border-top:1px solid var(--border);
-      display:flex; gap:10px; justify-content:space-between;
-    }
-    .tab{
-      flex:1; display:flex; flex-direction:column; gap:6px; align-items:center; justify-content:center;
-      background:#121725; border:1px solid var(--border); border-radius:14px; padding:10px 0; color:var(--muted); font-weight:700;
-    }
-    .tab .ico{font-size:20px}
-    .tab.active{color:#fff; outline:2px solid rgba(47,109,241,.45)}
-    /* Bottom sheet */
-    .overlay{position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:.2s}
-    .overlay.show{opacity:1; pointer-events:auto}
-    .sheet{
-      position:fixed; left:0; right:0; bottom:-100%;
-      background:#0f1116; border-top-left-radius:18px; border-top-right-radius:18px;
-      border-top:1px solid var(--border); box-shadow:0 -12px 40px rgba(0,0,0,.5);
-      transition:bottom .22s ease; padding:14px 16px calc(env(safe-area-inset-bottom,0) + 16px);
-    }
-    .sheet.show{bottom:0}
-    .handle{width:64px; height:5px; border-radius:99px; background:#2a2f3d; margin:6px auto 12px}
-    .sheet .title{font-size:20px; font-weight:800; margin-bottom:14px}
-    .sheet .section{background:#121725; border:1px solid var(--border); border-radius:14px; padding:14px; margin:10px 0}
-    .sheet .grid{display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center}
-    .copy{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#0b0e17; border:1px dashed #2a3759; border-radius:12px; padding:10px 12px}
+    .card{background:var(--card);border:1px solid var(--border);padding:16px;border-radius:18px;box-shadow:0 6px 32px rgba(0,0,0,.25)}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px}
+    .col{flex:1}
+
+    .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+      padding:16px 14px;background:var(--primary);border:0;border-radius:14px;color:#fff;font-weight:700}
+    .btn.secondary{background:#232a3a;color:#d8e0ea}
+    .btn:disabled{opacity:.5}
+    .field{width:100%;background:#0f131d;border:1px solid var(--border);color:var(--text);
+      padding:14px 12px;border-radius:12px;outline:none}
+    .tabbar{position:sticky;bottom:0;inset-inline:0;display:flex;gap:10px;padding:14px;background:linear-gradient(0deg,rgba(15,17,22,1),rgba(15,17,22,.85))}
+    .tab{flex:1;background:#151a25;border:1px solid var(--border);padding:10px;border-radius:14px;color:#a9b4c3}
+    .tab.active{outline:2px solid var(--primary);color:#fff}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#1f2a40;border:1px solid var(--border);font-size:12px}
+    .room-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .row-compact{display:flex;gap:10px;align-items:center}
+    .dice{display:flex;gap:10px}
+    .die{width:46px;height:46px;border-radius:10px;background:#0f131d;border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-size:20px}
+    .board-placeholder{margin-top:14px;height:220px;border:1px dashed var(--border);border-radius:14px;display:grid;place-items:center;color:var(--muted)}
+    /* sheet */
+    .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top-left-radius:16px;border-top-right-radius:16px;border:1px solid var(--border);
+      transform:translateY(100%);transition:.2s;z-index:5}
+    .sheet.open{transform:translateY(0)}
+    .sheet .head{display:flex;flex-direction:column;gap:6px;padding:10px 14px 0}
+    .sheet .drag{width:56px;height:6px;border-radius:999px;background:#2a3245;margin:6px auto}
+    .sheet .body{padding:10px 14px 14px}
   </style>
 </head>
 <body>
-  <!-- ПРОФИЛЬ -->
-  <section id="screen-profile" class="screen">
-    <div class="card">
-      <h2>Нарды</h2>
-      <p class="muted">Перед игрой укажи данные профиля.</p>
+<div class="wrap">
+  <header>
+    <div class="muted">мини-приложение</div>
+    <h1>Нарды</h1>
+  </header>
 
-      <form id="profile-form" autocomplete="on">
-        <div class="list">
-          <div>
-            <div class="muted" style="margin:0 0 6px">Имя</div>
-            <input id="name" type="text" inputmode="text" placeholder="Например, Дима" />
+  <div class="content">
+    <!-- Профиль -->
+    <section id="screen-profile" class="screen active">
+      <div class="card">
+        <h2>Перед игрой укажи данные профиля.</h2>
+        <div class="row" style="flex-direction:column;gap:10px">
+          <input id="nameInput" class="field" placeholder="Имя, например, Дима">
+          <input id="nickInput" class="field" placeholder="Никнейм, например, didimka">
+          <input id="bdInput" type="date" class="field" placeholder="Дата рождения">
+        </div>
+        <div style="height:12px"></div>
+        <button id="saveProfileBtn" class="btn">Сохранить</button>
+      </div>
+    </section>
+
+    <!-- Игры -->
+    <section id="screen-games" class="screen">
+      <div class="card">
+        <h2>Игры</h2>
+        <button id="createBtn" class="btn"><span>🎲</span>Создать игру</button>
+        <div style="height:10px"></div>
+        <button id="joinBtn" class="btn secondary"><span>🔗</span>Присоединиться</button>
+      </div>
+    </section>
+
+    <!-- Комната -->
+    <section id="screen-room" class="screen">
+      <div class="card">
+        <div class="room-head">
+          <div class="row-compact" style="gap:8px">
+            <div class="pill">Код: <span id="roomCode">—</span></div>
+            <div class="pill">Ход: <span id="turnWho">—</span></div>
           </div>
-          <div>
-            <div class="muted" style="margin:0 0 6px">Никнейм</div>
-            <input id="nick" type="text" inputmode="text" placeholder="Например, didimka" />
-          </div>
-          <div>
-            <div class="muted" style="margin:0 0 6px">Дата рождения</div>
-            <input id="dob" type="date" />
+          <div class="dice">
+            <div class="die" id="d1">–</div>
+            <div class="die" id="d2">–</div>
           </div>
         </div>
-        <div style="height:14px"></div>
-        <button class="btn primary" type="submit" style="width:100%">Сохранить</button>
-      </form>
-    </div>
-  </section>
-
-  <!-- ИГРЫ -->
-  <section id="screen-games" class="screen">
-    <div class="card">
-      <h2>Игры</h2>
-      <div class="list" style="margin-top:14px">
-        <button id="btn-create" class="entry btn primary" type="button" style="justify-content:flex-start">
-          <div class="icon">🎲</div>
-          <div>
-            <div class="title">Создать игру</div>
-            <div class="sub">Начать новую комнату</div>
-          </div>
-        </button>
-
-        <button id="btn-join-open" class="entry btn secondary" type="button" style="justify-content:flex-start">
-          <div class="icon">🔗</div>
-          <div>
-            <div class="title">Присоединиться</div>
-            <div class="sub">Войти по коду комнаты</div>
-          </div>
-        </button>
+        <div style="height:12px"></div>
+        <div class="board-placeholder" id="boardBox">Поле скоро появится 🙂</div>
+        <div style="height:12px"></div>
+        <button id="rollBtn" class="btn">Бросить кости</button>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ОФОРМЛЕНИЯ -->
-  <section id="screen-themes" class="screen">
-    <div class="card">
-      <h2>Оформления</h2>
-      <p class="muted">Скины доски и костей скоро появятся здесь.</p>
-      <div style="height:10px"></div>
-      <button class="btn secondary" disabled>Пока недоступно</button>
-    </div>
-  </section>
+    <!-- Оформления -->
+    <section id="screen-themes" class="screen">
+      <div class="card">
+        <h2>Оформления</h2>
+        <p class="muted">Скины доски и костей — скоро.</p>
+        <button class="btn secondary" disabled>Скоро</button>
+      </div>
+    </section>
+  </div>
 
-  <!-- НИЖНИЕ ВКЛАДКИ -->
   <nav class="tabbar">
-    <button class="tab" data-tab="profile"><div class="ico">👤</div><div>Профиль</div></button>
-    <button class="tab" data-tab="games"><div class="ico">🎮</div><div>Игры</div></button>
-    <button class="tab" data-tab="themes"><div class="ico">🎨</div><div>Оформления</div></button>
+    <button class="tab active" data-tab="profile">Профиль</button>
+    <button class="tab" data-tab="games">Игры</button>
+    <button class="tab" data-tab="themes">Оформления</button>
   </nav>
+</div>
 
-  <!-- OVERLAY -->
-  <div id="overlay" class="overlay"></div>
-
-  <!-- SHEET: JOIN -->
-  <div id="sheet-join" class="sheet" aria-hidden="true">
-    <div class="handle"></div>
-    <div class="title">Как хочешь присоединиться?</div>
-
-    <div class="section">
-      <div class="muted" style="font-weight:700; margin-bottom:8px">По коду комнаты</div>
-      <div class="grid">
-        <input id="joinCode" type="text" inputmode="latin" placeholder="Например, 7B7FX" />
-        <button id="btn-join" class="btn primary">Войти</button>
+<!-- Лист присоединения -->
+<div id="joinSheet" class="sheet">
+  <div class="head"><div class="drag"></div><h2 style="padding:0 6px">Как хочешь присоединиться?</h2></div>
+  <div class="body">
+    <div class="card" style="background:var(--panel-2)">
+      <h3 style="margin:0 0 8px">По коду комнаты</h3>
+      <div class="row">
+        <input id="joinCodeInput" class="field" placeholder="Например, 7B7FX" style="flex:1">
+        <button id="joinByCodeBtn" class="btn" style="width:140px">Войти</button>
       </div>
     </div>
-
-    <div class="section">
-      <div style="font-weight:800; margin-bottom:6px">Быстрый матч</div>
-      <div class="muted" style="margin-bottom:12px">Подберём соперника онлайн.</div>
-      <button id="btn-mm" class="btn primary" style="width:100%">🚀 Искать соперника</button>
+    <div style="height:10px"></div>
+    <div class="card" style="background:var(--panel-2)">
+      <h3 style="margin:0 0 8px">Быстрый матч</h3>
+      <p class="muted" style="margin:0 0 10px">Подберём соперника онлайн.</p>
+      <button id="quickMatchBtn" class="btn">🚀 Искать соперника</button>
     </div>
-
-    <button class="btn secondary" style="width:100%" data-close>Закрыть</button>
+    <div style="height:10px"></div>
+    <button id="closeSheetBtn" class="btn secondary">Закрыть</button>
   </div>
+</div>
 
-  <!-- SHEET: CREATED ROOM -->
-  <div id="sheet-created" class="sheet" aria-hidden="true">
-    <div class="handle"></div>
-    <div class="title">Комната создана</div>
-    <div class="section">
-      <div class="muted" style="margin-bottom:6px">Код комнаты</div>
-      <div class="grid">
-        <div id="created-code" class="copy">— — — — —</div>
-        <button id="btn-copy" class="btn">Копировать</button>
-      </div>
-      <div class="muted" style="margin-top:10px">Отправь код другу или введите его на втором устройстве.</div>
-    </div>
-    <button class="btn secondary" style="width:100%" data-close>Закрыть</button>
-  </div>
-
-  <!-- ВАЖНО: меняй номер версии при каждом обновлении -->
-  <script src="tgapp.js?v=13" defer></script>
+<script src="tgapp.js?v=5" defer></script>
 </body>
 </html>
