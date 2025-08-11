@@ -2,23 +2,73 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Nardy Mini App</title>
-  <link rel="manifest" href="manifest.json" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Нарды</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="manifest" href="manifest.json">
   <style>
-    html,body{margin:0;padding:0;height:100%;font-family:system-ui,Arial}
-    body{background:#0b0e14;color:#e6e6e6;display:flex;align-items:center;justify-content:center}
-    .wrap{max-width:420px;padding:24px;text-align:center}
-    .btn{border:0;padding:14px 18px;border-radius:12px;font-size:16px}
+    :root{
+      --bg:#0e1116;--fg:#e8ecf1;--muted:#9aa4b2;--card:#151a22;--accent:#2a77ff;--danger:#ff4455
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:var(--bg);color:var(--fg);min-height:100svh;display:flex;align-items:center;justify-content:center}
+    .wrap{width:min(560px,92%);padding:10px}
+    .card{background:var(--card);border-radius:16px;padding:24px;box-shadow:0 10px 30px rgb(0 0 0 / .25)}
+    h1{margin:0 0 6px;font-size:42px;letter-spacing:.5px}
+    .muted{color:var(--muted);margin:0 0 18px}
+    .ok{color:#27c24a}
+
+    /* блок броска костей */
+    #game{display:none;text-align:center}
+    .dice{width:120px;height:120px;margin:14px auto 10px;border-radius:18px;background:#0c0f14;display:grid;place-items:center;font-size:64px;outline:1px solid rgba(255,255,255,.08);transition:transform .18s ease}
+    .roll{transform:rotate(6deg) scale(1.03)}
+    .hint{color:var(--muted);font-size:14px;margin-top:6px}
+
+    /* форма профиля */
+    #auth label{display:block;margin:10px 0 6px;color:var(--muted);font-size:14px}
+    #auth input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0c0f14;color:var(--fg);font-size:16px}
+    .err{color:var(--danger);font-size:13px;margin-top:6px;display:none}
+    .row{display:grid;gap:12px}
+    @media(min-width:520px){.row{grid-template-columns:1fr 1fr}}
+    .center{text-align:center}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Нарды</h1>
-    <p>Мини-приложение подключено ✅</p>
-    <button id="start" class="btn">Бросить кости</button>
+    <!-- Форма профиля -->
+    <div id="auth" class="card">
+      <h1>Нарды</h1>
+      <p class="muted">Перед игрой укажи данные профиля.</p>
+      <div class="row">
+        <div>
+          <label for="name">Имя</label>
+          <input id="name" type="text" placeholder="Например, Дима" autocomplete="off" />
+          <div id="nameErr" class="err">Имя от 2 до 40 символов</div>
+        </div>
+        <div>
+          <label for="nick">Никнейм</label>
+          <input id="nick" type="text" placeholder="Например, didimka" autocomplete="off" />
+          <div id="nickErr" class="err">3–20 символов: латиница/цифры/нижнее подчёркивание</div>
+        </div>
+      </div>
+      <label for="dob">Дата рождения</label>
+      <input id="dob" type="date" />
+      <div id="dobErr" class="err">Укажи корректную дату</div>
+      <p class="muted">Данные сохраняются на твоём устройстве и передаются боту только при запуске из бота.</p>
+      <div class="center">
+        <small class="muted">Нажми кнопку «Сохранить» внизу.</small>
+      </div>
+    </div>
+
+    <!-- Экран игры -->
+    <div id="game" class="card">
+      <h1>Нарды</h1>
+      <p id="hello" class="muted">Мини-приложение подключено <span class="ok">✔</span></p>
+      <div id="dice" class="dice">🎲</div>
+      <p class="hint">Нажми «Играть» внизу, чтобы бросить кости</p>
+    </div>
   </div>
+
   <script src="tgapp.js"></script>
 </body>
 </html>
