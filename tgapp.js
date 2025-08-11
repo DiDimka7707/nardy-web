@@ -1,135 +1,144 @@
-// tgapp.js
+// ====== КОНФИГ ======
+const API_BASE = 'https://<ТВОЙ_СЕРВИС_НА_KOYEB>.koyeb.app'; // ВСТАВЬ СЮДА БАЗУ API
+// пример: https://subtle-annabell-nardy-bot.koyeb.app
 
-const SCREENS = ["profile","games","themes"];
+// ====== УТИЛЫ ======
+const $ = (sel) => document.querySelector(sel);
+const show = (id) => { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); $(id).classList.add('active'); };
+const toast = (t) => alert(t); // простая заглушка
+const GET = (u) => fetch(u).then(r => r.json());
+const POST = (u, body) => fetch(u, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r => r.json());
 
-function qs(s,root=document){return root.querySelector(s)}
-function qsa(s,root=document){return [...root.querySelectorAll(s)]}
+const storage = {
+  get k(){ return JSON.parse(localStorage.getItem('profile')||'{}'); },
+  set k(v){ localStorage.setItem('profile', JSON.stringify(v)); }
+};
 
-function showTab(tab){
-  SCREENS.forEach(n=>{
-    const el = qs("#screen-"+n);
-    if (el) el.classList.toggle("active", n===tab);
+const tg = window.Telegram?.WebApp;
+if (tg) tg.expand();
+
+// ====== ТАБЫ ======
+document.querySelectorAll('.tabbar .tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabbar .tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    if (tab==='profile') show('#screen-profile');
+    if (tab==='games')   show('#screen-games');
+    if (tab==='themes')  show('#screen-themes');
   });
-  qsa(".tabbar .tab").forEach(b=>{
-    b.classList.toggle("active", b.dataset.tab===tab);
+});
+
+// ====== ПРОФИЛЬ ======
+const nameInput = $('#nameInput');
+const nickInput = $('#nickInput');
+const bdInput   = $('#bdInput');
+
+const saved = storage.k;
+if (saved.name) nameInput.value = saved.name;
+if (saved.nick) nickInput.value = saved.nick;
+if (saved.bd)   bdInput.value   = saved.bd;
+
+$('#saveProfileBtn').addEventListener('click', ()=>{
+  const name = nameInput.value.trim();
+  const nick = nickInput.value.trim();
+  const bd   = bdInput.value.trim();
+  if (!name || !nick || !bd){ toast('Заполни все поля'); return; }
+  storage.k = { name, nick, bd };
+  toast('Профиль сохранён ✅');
+});
+
+// ====== ИГРЫ ======
+const joinSheet = $('#joinSheet');
+const openSheet = ()=> joinSheet.classList.add('open');
+const closeSheet= ()=> joinSheet.classList.remove('open');
+$('#joinBtn').addEventListener('click', openSheet);
+$('#closeSheetBtn').addEventListener('click', closeSheet);
+
+$('#createBtn').addEventListener('click', async ()=>{
+  const prof = storage.k;
+  if (!prof.name){ toast('Сначала сохрани профиль'); return; }
+
+  const userId = (tg && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : 'web-'+crypto.randomUUID();
+  const resp = await POST(`${API_BASE}/api/room/new`, {
+    creator_id: userId,
+    nickname: prof.nick || prof.name
   });
-  try{localStorage.setItem("last_tab", tab)}catch(e){}
+
+  if (resp.detail){ toast(resp.detail); return; }
+  enterRoom(resp);
+});
+
+$('#joinByCodeBtn').addEventListener('click', async ()=>{
+  const code = $('#joinCodeInput').value.trim().toUpperCase();
+  if (!code) return;
+  const prof = storage.k;
+  if (!prof.name){ toast('Сначала сохрани профиль'); return; }
+
+  const userId = (tg && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : 'web-'+crypto.randomUUID();
+  const resp = await POST(`${API_BASE}/api/room/join`, {
+    code, user_id: userId, nickname: prof.nick || prof.name
+  });
+
+  if (resp.detail){ toast(resp.detail); return; }
+  closeSheet();
+  enterRoom(resp);
+});
+
+$('#quickMatchBtn').addEventListener('click', ()=>{
+  toast('Скоро сделаем подбор соперника 🙂');
+});
+
+// ====== КОМНАТА ======
+let current = null;       // текущее состояние
+let pollTimer = null;
+
+function enterRoom(state){
+  current = state;
+  $('#roomCode').textContent = state.code;
+  $('#turnWho').textContent  = state.turn || '—';
+  $('#d1').textContent = state.dice ? state.dice[0] : '–';
+  $('#d2').textContent = state.dice ? state.dice[1] : '–';
+  $('#boardBox').textContent = 'Поле скоро появится 🙂';
+
+  show('#screen-room');
+  ensureTabsOnGames(); // подсветка таба "Игры"
+
+  // старт пуллинга
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollRoom, 1500);
 }
 
-function bindTabs(){
-  qsa(".tabbar .tab").forEach(btn=>{
-    btn.addEventListener("click", ()=> showTab(btn.dataset.tab));
-  });
-}
-
-function toast(msg){ alert(msg); } // простая заглушка
-
-/* ===== Профиль ===== */
-function initProfile(){
-  const form = qs("#profile-form");
-  if(!form) return;
-  const name = qs("#name"), nick=qs("#nick"), dob=qs("#dob");
-
-  // заполним из localStorage
+async function pollRoom(){
+  if (!current) return;
   try{
-    const raw = localStorage.getItem("nardy_profile");
-    if(raw){
-      const p = JSON.parse(raw);
-      if(name) name.value = p.name || "";
-      if(nick) nick.value = p.nick || "";
-      if(dob)  dob.value  = p.dob  || "";
+    const s = await GET(`${API_BASE}/api/room/state?code=${current.code}`);
+    if (s.version !== current.version){
+      current = s;
+      $('#turnWho').textContent  = s.turn || '—';
+      $('#d1').textContent = s.dice ? s.dice[0] : '–';
+      $('#d2').textContent = s.dice ? s.dice[1] : '–';
     }
-  }catch(e){}
-
-  form.addEventListener("submit",(ev)=>{
-    ev.preventDefault();
-    const data = {
-      name: (name?.value || "").trim(),
-      nick: (nick?.value || "").trim(),
-      dob:  (dob?.value  || "")
-    };
-    try{ localStorage.setItem("nardy_profile", JSON.stringify(data)); }catch(e){}
-    toast("Готово\nПрофиль сохранён ✅");
-  });
+  }catch(e){
+    // ignore
+  }
 }
 
-/* ===== Игры ===== */
-function randCode(len=5){
-  const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без похожих символов
-  let s=""; for(let i=0;i<len;i++) s+=a[Math.floor(Math.random()*a.length)];
-  return s;
+$('#rollBtn').addEventListener('click', async ()=>{
+  if (!current) return;
+  const userId = (tg && tg.initDataUnsafe?.user?.id) ? String(tg.initDataUnsafe.user.id) : 'web-'+crypto.randomUUID();
+  const resp = await POST(`${API_BASE}/api/room/roll`, { code: current.code, user_id: userId });
+  if (resp.detail){ toast(resp.detail); return; }
+  current = resp;
+  $('#d1').textContent = resp.dice ? resp.dice[0] : '–';
+  $('#d2').textContent = resp.dice ? resp.dice[1] : '–';
+  $('#turnWho').textContent = resp.turn || '—';
+});
+
+function ensureTabsOnGames(){
+  document.querySelectorAll('.tabbar .tab').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.tabbar .tab[data-tab="games"]').classList.add('active');
 }
 
-function openOverlay(){ qs("#overlay")?.classList.add("show"); }
-function closeOverlay(){ qs("#overlay")?.classList.remove("show"); }
-
-function openSheet(id){
-  openOverlay();
-  const el = qs("#"+id);
-  if(el){ el.classList.add("show"); el.setAttribute("aria-hidden","false"); }
-}
-function closeSheets(){
-  closeOverlay();
-  qsa(".sheet").forEach(el=>{el.classList.remove("show"); el.setAttribute("aria-hidden","true");});
-}
-
-function initGames(){
-  // создать игру
-  const createBtn = qs("#btn-create");
-  createBtn?.addEventListener("click", ()=>{
-    const code = randCode();
-    const slot = qs("#created-code");
-    if(slot) slot.textContent = code;
-    openSheet("sheet-created");
-  });
-
-  // копировать код
-  qs("#btn-copy")?.addEventListener("click", async()=>{
-    const txt = qs("#created-code")?.textContent?.trim() || "";
-    try{
-      await navigator.clipboard.writeText(txt);
-      toast("Код скопирован: "+txt);
-    }catch(e){
-      toast("Скопируй код вручную: "+txt);
-    }
-  });
-
-  // открыть join-sheet
-  qs("#btn-join-open")?.addEventListener("click", ()=> openSheet("sheet-join"));
-
-  // войти по коду
-  qs("#btn-join")?.addEventListener("click", ()=>{
-    const code = (qs("#joinCode")?.value || "").toUpperCase().trim();
-    if(code.length < 4){ toast("Введи корректный код комнаты"); return; }
-    // здесь можно отправить событие в бота через WebApp API — пока просто показ.
-    toast("Пробуем войти в комнату: "+code);
-    closeSheets();
-  });
-
-  // быстрый матч
-  qs("#btn-mm")?.addEventListener("click", ()=>{
-    toast("Матчмейкинг скоро будет 👀");
-    closeSheets();
-  });
-
-  // закрытие листов
-  qs("#overlay")?.addEventListener("click", closeSheets);
-  qsa("[data-close]").forEach(b=> b.addEventListener("click", closeSheets));
-}
-
-/* ===== Старт ===== */
-function init(){
-  try{ window.Telegram?.WebApp?.ready?.(); }catch(e){}
-  bindTabs();
-  initProfile();
-  initGames();
-
-  let start = "games";
-  try{
-    const last = localStorage.getItem("last_tab");
-    if(SCREENS.includes(last)) start = last;
-  }catch(e){}
-  showTab(start);
-}
-
-document.addEventListener("DOMContentLoaded", init);
+// стартовая вкладка — Профиль
+show('#screen-profile');
