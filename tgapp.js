@@ -1,15 +1,14 @@
-// tgapp.js v18 — делегирование кликов, безопасный старт, debug, API-утилы.
+// tgapp.js v19 — делегирование кликов + поддержка всех наших id/классов,
+// создание комнаты, ожидание соперника, вход по коду, простой debug.
 
-// ====== НАСТРОЙКА БЭКА ======
-const API_BASE =
-  (window.__API_BASE__ || '').trim() ||
-  'https://YOUR-KOYEB-APP-DOMAIN.koyeb.app'; // ← ПОМЕНЯЙ на свой домен
-const API = () => (API_BASE || '').replace(/\/+$/,'');
+// ===== НАСТРОЙКА БЭКА (ПОДСТАВЬ СВОЙ ДОМЕН) =====
+const API_BASE = 'https://<ТВОЙ-ДОМЕН>.koyeb.app'; // например: https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app
+const API = () => API_BASE.replace(/\/+$/,'');
 
-// ====== УТИЛИТЫ ======
+// ===== УТИЛЫ =====
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-function toast(m){ try{window.Telegram?.WebApp?.showAlert?.(m);}catch{} alert(m); }
+function toast(m){ alert(m); }
 function setBusy(btn, busy, busyText){
   if(!btn) return;
   if(!btn.__label) btn.__label = (btn.textContent||'').trim();
@@ -24,39 +23,39 @@ async function api(path, method='GET', body=null){
   });
   if(!res.ok){
     let msg = 'HTTP '+res.status;
-    try { const j = await res.json(); if(j?.detail) msg = j.detail; } catch {}
+    try{ const j=await res.json(); if(j?.detail) msg=j.detail; }catch{}
     throw new Error(msg);
   }
-  const ct = res.headers.get('content-type') || '';
+  const ct = res.headers.get('content-type')||'';
   return ct.includes('application/json') ? res.json() : res.text();
 }
-function readProfile(){
-  const id = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  return {
-    player_id: id ? String(id) : '',
-    name: $('#profileName')?.value?.trim() || '',
-    nick: $('#profileNick')?.value?.trim() || ''
-  };
-}
 
-// ====== ГЛОБАЛЬНО ======
+// ===== СОСТОЯНИЕ =====
 const ST = { waitCode:null, poll:null };
 
-// ====== ЛОГИКА ======
-async function doCreate(btn){
+// ===== ЛОГИКА =====
+async function createRoom(btn){
   try{
-    setBusy(btn, true, 'Создаём…');
-    const { code } = await api('/api/rooms/create','POST');
-    toast('Код комнаты: ' + code);
-    startWait(code, btn);
-  }catch(e){ toast('Не удалось создать игру: ' + e.message); }
-  finally{ setBusy(btn, false); }
+    setBusy(btn,true,'Создаём…');
+    // пробуем основной путь, если 404 — алиас
+    let data;
+    try{ data = await api('/api/rooms/create','POST'); }
+    catch(e){ if(e.status===404) data = await api('/api/room/create','POST'); else throw e; }
+    const code = data?.code;
+    if(!code) throw new Error('Пустой ответ');
+    toast('Код комнаты: '+code);
+    startWaiting(code, btn);
+  }catch(e){
+    toast('Не удалось создать игру: '+e.message);
+  }finally{
+    setBusy(btn,false);
+  }
 }
-function startWait(code, btn){
+function startWaiting(code, btn){
   ST.waitCode = code;
-  setBusy(btn, true, 'Ждём соперника…');
-  const joinOpen = $('#btnOpenJoin') || $('[data-action="open-join"]');
-  if(joinOpen) joinOpen.disabled = true;
+  setBusy(btn,true,'Ждём соперника…');
+  const openJoin = $('#btn-join') || $('#btnOpenJoin') || $('[data-action="open-join"]');
+  if(openJoin) openJoin.disabled = true;
 
   clearInterval(ST.poll);
   ST.poll = setInterval(async ()=>{
@@ -64,42 +63,71 @@ function startWait(code, btn){
       const st = await api(`/api/rooms/${code}/status`);
       if(st.ready){
         clearInterval(ST.poll); ST.poll=null; ST.waitCode=null;
-        setBusy(btn, false); if(joinOpen) joinOpen.disabled=false;
+        setBusy(btn,false); if(openJoin) openJoin.disabled=false;
         toast('Соперник присоединился! Матч готов.');
       }
     }catch(err){
       clearInterval(ST.poll); ST.poll=null; ST.waitCode=null;
-      setBusy(btn, false); if(joinOpen) joinOpen.disabled=false;
+      setBusy(btn,false); if(openJoin) openJoin.disabled=false;
       toast('Комната недоступна: '+err.message);
     }
   }, 2500);
 }
-async function doJoin(btn){
-  const inp = $('#joinCode') || $('input[name="join-code"]');
-  const code = (inp?.value || '').trim().toUpperCase();
-  if(!code || code.length<4){ toast('Введи код комнаты, например 7B7FX'); return; }
+
+async function joinByCode(btn){
+  const input = $('#joinCodeInput') || $('#joinCode') || $('input[name="join-code"]');
+  const code = (input?.value||'').trim().toUpperCase();
+  if(!code){ toast('Введи код комнаты'); return; }
   try{
-    setBusy(btn, true, 'Входим…');
-    const me = readProfile();
+    setBusy(btn,true,'Входим…');
+    // минимальные данные игрока (если нужны — расширим)
+    const me = { player_id:'', name:'', nick:'' };
     const r = await api(`/api/rooms/${code}/join`, 'POST', me);
     toast(`Ты в комнате ${r.code}. Роль: ${r.role}`);
-  }catch(e){ toast('Не удалось войти: ' + e.message); }
-  finally{ setBusy(btn, false); }
+    closeJoinSheet();
+  }catch(e){
+    toast('Не удалось войти: '+e.message);
+  }finally{
+    setBusy(btn,false);
+  }
 }
 
-// ====== ДЕЛЕГИРОВАНИЕ КЛИКОВ ======
-function bindDelegatedClicks(){
-  document.addEventListener('click', (ev)=>{
-    const createBtn = ev.target.closest('#btnCreateGame, [data-action="create"], .btn-create');
-    if(createBtn){ ev.preventDefault(); doCreate(createBtn); return; }
+function openJoinSheet(){
+  // если есть шторка
+  const sheet = $('#join-sheet'); if(sheet){ sheet.classList.add('open'); return; }
+  // fallback: плавно пролистать к блоку ввода
+  const field = $('#joinCodeInput') || $('#joinCode') || $('input[name="join-code"]');
+  if(field) field.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function closeJoinSheet(){
+  const sheet = $('#join-sheet'); if(sheet) sheet.classList.remove('open');
+}
 
-    const joinBtn = ev.target.closest('#btnJoinGo, [data-action="join-go"], .btn-join-go');
-    if(joinBtn){ ev.preventDefault(); doJoin(joinBtn); return; }
+// ===== ДЕЛЕГИРОВАНИЕ КЛИКОВ (работает даже если кнопки появились позже) =====
+function bindDelegated(){
+  document.addEventListener('click', (ev)=>{
+    const target = ev.target;
+
+    // СОЗДАТЬ ИГРУ — поддерживаем разные id/классы
+    const createBtn = target.closest('#btn-create, #btnCreateGame, .btn-create, [data-action="create"]');
+    if(createBtn){ ev.preventDefault(); createRoom(createBtn); return; }
+
+    // ОТКРЫТЬ «ПРИСОЕДИНИТЬСЯ»
+    const openJoin = target.closest('#btn-join, #btnOpenJoin, .btn-open-join, [data-action="open-join"]');
+    if(openJoin){ ev.preventDefault(); openJoinSheet(); return; }
+
+    // ВОЙТИ ПО КОДУ
+    const joinGo = target.closest('#btn-join-by-code, #btnJoinGo, .btn-join-go, [data-action="join-go"]');
+    if(joinGo){ ev.preventDefault(); joinByCode(joinGo); return; }
+
+    // Закрыть шторку
+    const joinClose = target.closest('#join-close, #join-cancel, .btn-join-close');
+    if(joinClose){ ev.preventDefault(); closeJoinSheet(); return; }
   }, { passive:true });
 }
 
-// ====== ТАБЫ (если есть data-атрибуты) ======
-function initTabsIfAny(){
+// ===== ТАБЫ (если разметка использует data-атрибуты — активируем) =====
+function initTabsIfPresent(){
   const views = $$('[data-screen]');
   const tabs  = $$('[data-tab]');
   if(!views.length || !tabs.length) return;
@@ -112,24 +140,25 @@ function initTabsIfAny(){
   show(localStorage.getItem('nardy_tab') || tabs[0].dataset.tab);
 }
 
-// ====== DEBUG ======
-function enableDebugIfAsked(){
+// ===== DEBUG =====
+function enableDebug(){
   const u = new URL(location.href);
   if(u.searchParams.get('debug')==='1'){
-    window.addEventListener('error', e => alert('JS error: '+(e?.error?.message||e.message)));
-    toast('Debug ON');
+    window.addEventListener('error', e=> alert('JS error: '+(e?.error?.message||e.message)));
+    toast('Script ready v19');
   }
 }
 
-// ====== START ======
+// ===== START =====
 (function start(){
-  enableDebugIfAsked();
-  bindDelegatedClicks();
+  enableDebug();
+  bindDelegated();
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initTabsIfAny, { once:true });
+    document.addEventListener('DOMContentLoaded', initTabsIfPresent, { once:true });
   } else {
-    initTabsIfAny();
+    initTabsIfPresent();
   }
-  document.documentElement.setAttribute('data-tgapp','v18');
-  console.log('tgapp.js v18 ready');
+  document.documentElement.setAttribute('data-tgapp','v19');
+  // быстрый пинг бэка — если упадёт, увидим при нажатии на кнопки
+  fetch(API()+'/health').catch(()=>{});
 })();
