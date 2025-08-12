@@ -2,7 +2,7 @@
 // создание комнаты, ожидание соперника, вход по коду, простой debug.
 
 // ===== НАСТРОЙКА БЭКА (ПОДСТАВЬ СВОЙ ДОМЕН) =====
-const API_BASE = 'https://<ТВОЙ-ДОМЕН>.koyeb.app'; // например: https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app
+const API_BASE = 'https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app'; // например: https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app
 const API = () => API_BASE.replace(/\/+$/,'');
 
 // ===== УТИЛЫ =====
