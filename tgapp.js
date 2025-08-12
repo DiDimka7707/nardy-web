@@ -1,155 +1,135 @@
-// tgapp.js — ПОЛНАЯ ЗАМЕНА
+// tgapp.js v12 — обработчики для "Создать игру" и "Присоединиться"
 
-// ==== НАСТРОЙКИ ====
-// при необходимости поменяй домен на свой
-const API_BASE = localStorage.getItem('NARDY_API_BASE') ||
-  'https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app';
+// 1) ВСТАВЬ сюда свой публичный URL сервиса Koyeb (Overview → Public URL)
+const API_BASE = 'https://<ТВОЙ-домен>.koyeb.app';
 
-// ==== TELEGRAM WEBAPP ====
-const TG = window.Telegram?.WebApp;
-if (TG) { try { TG.expand(); } catch {} }
-
-function pop(msg, title = 'Готово') {
-  if (TG?.showPopup) TG.showPopup({ title, message: msg, buttons: [{ type: 'ok' }] });
-  else alert(msg);
+// Если забудешь поменять — попробуем угадать из location.origin
+const _apiBase = API_BASE.includes('<ТВОЙ-домен>') ? null : API_BASE;
+function base() {
+  return _apiBase || (location.origin.includes('koyeb.app') ? location.origin : API_BASE);
 }
-function haptic(type = 'impact') { try { TG?.HapticFeedback?.impactOccurred?.(type); } catch {} }
 
-// ==== УТИЛИТЫ ====
-const $  = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-const byId = (id) => document.getElementById(id);
-
-function uid(){ return 'p_' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
-function getPlayerId(){
-  let id = localStorage.getItem('NARDY_PLAYER_ID');
-  if (!id){ id = uid(); localStorage.setItem('NARDY_PLAYER_ID', id); }
-  return id;
-}
-function getProfile(){
-  const raw = localStorage.getItem('NARDY_PROFILE');
-  let p = raw ? JSON.parse(raw) : {};
-  if (!p.name) p.name = $('#name')?.value?.trim() || TG?.initDataUnsafe?.user?.first_name || 'Игрок';
-  if (!p.nick) p.nick = $('#nick')?.value?.trim() || TG?.initDataUnsafe?.user?.username || 'guest';
-  return p;
-}
-function saveProfile(){
-  const p = {
-    name: $('#name')?.value?.trim() || '',
-    nick: $('#nick')?.value?.trim() || '',
-    dob:  $('#dob')?.value?.trim()  || ''
+// Универсальный fetch с JSON/ошибками
+async function api(path, opts = {}) {
+  const url = `${base()}${path}`;
+  const init = {
+    method: 'GET',
+    headers: {'Content-Type': 'application/json'},
+    ...opts
   };
-  localStorage.setItem('NARDY_PROFILE', JSON.stringify(p));
-  haptic('soft'); pop('Профиль сохранён');
-}
-async function api(path, { method='GET', body, headers } = {}){
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...(headers||{}) },
-    body: body===undefined ? undefined : JSON.stringify(body)
-  });
-  const ct = res.headers.get('content-type') || '';
-  const data = ct.includes('application/json') ? await res.json() : await res.text();
-  if (!res.ok) throw new Error(typeof data==='string' ? data : (data?.detail||`HTTP ${res.status}`));
+  if (init.body && typeof init.body !== 'string') init.body = JSON.stringify(init.body);
+
+  const res = await fetch(url, init);
+  let data = null;
+  try { data = await res.json(); } catch { /* текст/пусто — ок */ }
+  if (!res.ok) {
+    const msg = (data && (data.detail || data.message)) || `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 }
-function setLoading(btn, on, text='Загрузка…'){
+
+// UI helpers
+function toast(msg){ alert(msg); }
+function $(sel){ return document.querySelector(sel); }
+function setBusy(btn, busy, textWhenBusy, textNormal){
   if (!btn) return;
-  if (!btn.dataset._orig) btn.dataset._orig = btn.textContent;
-  btn.disabled = !!on; btn.textContent = on ? text : btn.dataset._orig;
+  if (!btn.__label) btn.__label = btn.textContent;
+  btn.disabled = !!busy;
+  btn.textContent = busy ? (textWhenBusy || 'Загрузка…') : (textNormal || btn.__label);
 }
 
-// ==== ТАБЫ (нижние кнопки) ====
-function showScreen(name){
-  // экраны имеют id: screen-profile / screen-games / screen-themes
-  $$('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
-  $$('.tabbar .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+// ====== ЛОГИКА ИГРЫ ======
+
+// Создать комнату: сначала пытаемся /api/room/create, если 404 — /api/room (обратная совместимость)
+async function createRoom(btn){
+  try{
+    setBusy(btn, true, 'Создаём…', '🎲 Создать игру');
+    let data;
+    try {
+      data = await api('/api/room/create', {method: 'POST'});
+    } catch (e) {
+      if (e.status === 404) data = await api('/api/room', {method: 'POST'});
+      else throw e;
+    }
+    const code = (data && (data.code || data.id || data.room)) || '';
+    if (!code) throw new Error('Пустой ответ сервера');
+    toast(`Код комнаты: ${code}`);
+  } catch (e){
+    toast(`Не удалось создать игру: ${e.message || e}`);
+  } finally {
+    setBusy(btn, false);
+  }
 }
-function initTabs(){
-  // навешиваем клики на нижние кнопки
-  $$('.tabbar .tab').forEach(btn=>{
-    btn.addEventListener('click', ()=> showScreen(btn.dataset.tab));
+
+// Открыть нижнюю панель/лист для присоединения (если он у тебя есть)
+function openJoinSheet(){
+  // Если у тебя модал с id="join-sheet"
+  const sheet = $('#join-sheet');
+  if (sheet) sheet.classList.add('open');
+  // Если вместо модала отдельный экран — просто переключи вкладку
+  const joinSection = $('#join-block');
+  if (joinSection) joinSection.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// Присоединиться по коду (из поля ввода)
+async function joinByCode(btn){
+  try{
+    const input = $('#joinCodeInput, #joinCode, input[name="roomCode"]');
+    const raw = (input && input.value || '').trim().toUpperCase();
+    if (!raw) return toast('Введи код комнаты');
+
+    setBusy(btn, true, 'Проверяем…', 'Войти');
+
+    // сначала /api/room/lookup?code=, если 404 — /api/room?code=
+    let data;
+    try {
+      data = await api(`/api/room/lookup?code=${encodeURIComponent(raw)}`);
+    } catch (e){
+      if (e.status === 404) data = await api(`/api/room?code=${encodeURIComponent(raw)}`);
+      else throw e;
+    }
+    // считаем, что успех, если вернулся объект/строка без ошибки
+    toast(`Комната найдена: ${raw}`);
+    // тут можно сделать переход в саму игру, когда она будет готова
+  } catch (e){
+    toast(`Не удалось присоединиться: ${e.message || e}`);
+  } finally {
+    setBusy(btn, false);
+  }
+}
+
+// ====== ПРИВЯЗКА КНОПОК (делегирование) ======
+function initButtons(){
+  document.addEventListener('click', (e)=>{
+    const b = e.target.closest('button');
+    if (!b) return;
+    const id = (b.id || '').toLowerCase();
+
+    // поддерживаем несколько вариантов id, чтобы не лазить в вёрстку
+    if (['btn-create','creategamebtn','create_game_btn'].includes(id)) {
+      e.preventDefault(); createRoom(b); return;
+    }
+    if (['btn-join','joinopenbtn','openjoinbtn','join_btn'].includes(id)) {
+      e.preventDefault(); openJoinSheet(); return;
+    }
+    if (['btn-join-by-code','joingo','joingobtn','join_by_code_btn'].includes(id)) {
+      e.preventDefault(); joinByCode(b); return;
+    }
   });
-  // стартовый таб — тот, что уже помечен active, иначе profile
-  const active = $('.tabbar .tab.active') || $('.tabbar .tab[data-tab="profile"]');
-  showScreen(active?.dataset.tab || 'profile');
 }
 
-// ==== ЭЛЕМЕНТЫ ====
-const el = {
-  btnCreate: $('#createGameBtn'),
-  joinInput: $('#joinCodeInput'),
-  btnJoin:   $('#joinSubmitBtn'),
-  btnQueue:  $('#quickMatchBtn'),
-  btnSave:   $('#saveProfileBtn'),
-};
-
-// ==== ДЕЙСТВИЯ ====
-async function createRoom(){
-  const pid = getPlayerId();
-  const prof = getProfile();
-  setLoading(el.btnCreate, true, 'Создаём…');
-  try{
-    const r = await api('/api/rooms/create', { method:'POST', body:{ host_id: pid, host_name: prof.name || prof.nick || 'Игрок' }});
-    haptic('rigid'); pop(`Код комнаты: ${r.code}`, 'Комната создана');
-  }catch(e){ pop('Не удалось создать игру: ' + e.message, 'Ошибка'); }
-  finally{ setLoading(el.btnCreate, false); }
-}
-async function joinByCode(){
-  const raw = el.joinInput?.value || '';
-  const code = raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5);
-  if (!code) return pop('Введи код комнаты (5 символов)', 'Подсказка');
-  const pid = getPlayerId(); const prof = getProfile();
-  setLoading(el.btnJoin, true, 'Входим…');
-  try{
-    await api(`/api/rooms/${code}/join`, { method:'POST', body:{ player_id: pid, player_name: prof.name || prof.nick || 'Игрок' }});
-    haptic('soft'); pop(`Комната найдена: ${code}`, 'Успешно');
-  }catch(e){ pop('Не удалось войти: ' + e.message, 'Ошибка'); }
-  finally{ setLoading(el.btnJoin, false); }
-}
-async function quickMatch(){
-  const pid = getPlayerId(); const prof = getProfile();
-  setLoading(el.btnQueue, true, 'Ищем…');
-  try{
-    const r = await api('/api/matchmaking/enqueue', { method:'POST', body:{ player_id: pid, player_name: prof.name || prof.nick || 'Игрок' }});
-    if (r.matched && r.code){ setLoading(el.btnQueue,false); haptic('rigid'); return pop(`Соперник найден! Код: ${r.code}`, 'Быстрый матч'); }
-    // поллинг
-    const timer = setInterval(async ()=>{
-      try{
-        const p = await api(`/api/matchmaking/poll?player_id=${encodeURIComponent(pid)}`);
-        if (p.matched && p.code){ clearInterval(timer); setLoading(el.btnQueue,false); haptic('rigid'); pop(`Соперник найден! Код: ${p.code}`, 'Быстрый матч'); }
-      }catch{ clearInterval(timer); setLoading(el.btnQueue,false); pop('Поиск прерван. Попробуй ещё раз.', 'Ошибка'); }
-    }, 1800);
-  }catch(e){ setLoading(el.btnQueue,false); pop('Не удалось встать в очередь: ' + e.message, 'Ошибка'); }
+// На всякий — проверка здоровья, чтобы быстрее поймать проблемы с бэкендом
+async function quickHealthPing(){
+  try { await api('/health'); } catch(e){
+    console.warn('Health check failed:', e);
+  }
 }
 
-// ==== BIND/UI ====
-function initProfileForm(){
-  const p = getProfile();
-  if ($('#name')) $('#name').value = p.name || '';
-  if ($('#nick')) $('#nick').value = p.nick || '';
-  if ($('#dob'))  $('#dob').value  = p.dob  || '';
-}
-function bindUI(){
-  el.btnSave?.addEventListener('click', (e)=>{ e.preventDefault(); saveProfile(); });
-  el.btnCreate?.addEventListener('click', createRoom);
-  el.btnJoin?.addEventListener('click', joinByCode);
-  el.btnQueue?.addEventListener('click', quickMatch);
-  el.joinInput?.addEventListener('input', ()=>{ el.joinInput.value = el.joinInput.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
-}
-
-// ==== STARTUP ====
 document.addEventListener('DOMContentLoaded', ()=>{
-  initTabs();         // ← добавили это: включает нижние кнопки
-  initProfileForm();
-  bindUI();
-  // быстрая проверка доступности API
-  fetch(API_BASE + '/health').catch(()=> pop('API недоступно. Проверь адрес в tgapp.js', 'Внимание'));
+  initButtons();
+  quickHealthPing();
 });
-
-// Возможность сменить API без редеплоя
-window.nardySetApiBase = (url)=>{
-  if (!/^https?:\/\//.test(url)) return pop('Полный URL, напр. https://xxx.koyeb.app', 'Подсказка');
-  localStorage.setItem('NARDY_API_BASE', url.replace(/\/+$/,''));
-  pop('API-адрес сохранён. Перезапусти мини-app.');
-};
