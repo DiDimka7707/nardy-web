@@ -2,25 +2,20 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Нарды Классика · v1.0</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Нарды Классика · v22</title>
   <meta name="color-scheme" content="dark light"/>
-  <!-- Three.js -->
   <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-  <!-- Минимум стилий (флагманский тёмный) -->
   <style>
     :root{--bg:#0e1116;--card:#171b22;--muted:#8b95a7;--text:#e8eefc;--border:rgba(255,255,255,.08);
-          --primary:#4da3ff;--primary2:#6a7bff;--ring:0 0 0 2px rgba(77,163,255,.35),0 8px 20px rgba(77,163,255,.25);
-          --radius:16px;}
+          --primary:#4da3ff;--primary2:#6a7bff;--ring:0 0 0 2px rgba(77,163,255,.35),0 8px 20px rgba(77,163,255,.25);--radius:16px;}
     *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;background:radial-gradient(1000px 600px at 50% -120px,#1b2230 0%,var(--bg) 60%);
-         color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-         -webkit-tap-highlight-color:transparent;}
+         color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;-webkit-tap-highlight-color:transparent;}
     .app{min-height:100dvh;padding-bottom:96px}
     header{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;
            padding:14px 16px calc(14px + env(safe-area-inset-top));
-           background:linear-gradient(180deg,rgba(10,12,18,.85),rgba(10,12,18,0));
-           backdrop-filter:blur(10px)}
+           background:linear-gradient(180deg,rgba(10,12,18,.85),rgba(10,12,18,0));backdrop-filter:blur(10px)}
     .title{font-weight:800;font-size:20px}
     .balance{display:flex;gap:8px;align-items:center;background:linear-gradient(135deg,rgba(77,163,255,.2),rgba(106,123,255,.2));
              border:1px solid var(--border);padding:8px 12px;border-radius:999px}
@@ -45,7 +40,6 @@
          background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
          color:#c9d6ff;font-weight:800;font-size:14px;display:flex;gap:8px;align-items:center;justify-content:center}
     .tab.active{color:#fff;box-shadow:var(--ring);outline:1px solid rgba(77,163,255,.45)}
-
     /* sheet */
     .sheet{position:fixed;inset:0;z-index:40;display:none}
     .sheet.open{display:block}
@@ -57,9 +51,8 @@
     .sheet .handle{width:44px;height:5px;border-radius:6px;background:#394150;margin:0 auto 12px}
     .input{width:100%;padding:14px;border-radius:12px;background:#0d131c;color:#eaf1ff;border:1px solid #243046;font-size:16px}
     .input::placeholder{color:#789}
-    .legal{display:inline-block;padding:2px 8px;border-radius:999px;background:#2a3140;color:#cfe0ff;border:1px solid #3c4a66;font-size:12px}
+    /* Game 3D */
     canvas#game3d{width:100%;height:360px;display:block;border-radius:14px;border:1px solid var(--border);background:#0b0f16}
-    .donate-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   </style>
 </head>
 <body>
@@ -70,33 +63,52 @@
     </header>
 
     <main>
-      <!-- Games -->
-      <section id="screen-games" class="screen active" data-screen="games">
+      <!-- HOME (Главное меню) -->
+      <section id="screen-home" class="screen active">
         <div class="card">
           <h2>Игры</h2>
-          <p class="muted">Создай комнату или присоединись к другу. После старта появится 3D-доска.</p>
+          <p class="muted">Создай комнату или присоединись по коду.</p>
           <div class="spacer"></div>
-          <button id="btn-create" class="btn primary">🎲 Создать игру</button>
+          <button id="btn-create" class="btn primary">🎲 Создать комнату</button>
           <div class="spacer"></div>
           <button id="btn-join" class="btn secondary">🔗 Присоединиться</button>
         </div>
-        <div class="spacer"></div>
+      </section>
+
+      <!-- LOBBY (видно только после create/join) -->
+      <section id="screen-lobby" class="screen">
         <div class="card">
-          <h2>3D-доска (демо)</h2>
-          <p class="muted">Нажми «Бросить кубики». Движки подсказывают легальные ходы (MVP).</p>
-          <canvas id="game3d" width="800" height="360"></canvas>
+          <h2>Лобби</h2>
+          <p class="muted">Код комнаты: <strong id="roomCode">—</strong></p>
+          <div class="space"></div>
+          <div id="playersBox" class="row"></div>
           <div class="space"></div>
           <div class="row">
-            <button id="btn-start" class="btn secondary">🚦 Старт матча</button>
-            <button id="btn-roll"  class="btn primary">🎲 Бросить кубики</button>
+            <button id="btn-ready-toggle" class="btn secondary">✅ Я готов</button>
+            <button id="btn-start" class="btn primary" disabled>🚦 Начать матч</button>
           </div>
           <div class="spacer"></div>
-          <div id="movesHint" class="legal" style="display:none"></div>
+          <button id="btn-back-home" class="btn ghost">← Вернуться</button>
         </div>
       </section>
 
-      <!-- Profile -->
-      <section id="screen-profile" class="screen" data-screen="profile">
+      <!-- GAME (3D доска — только после старта) -->
+      <section id="screen-game" class="screen">
+        <div class="card">
+          <h2>Матч</h2>
+          <p class="muted">Ход: <strong id="turnLabel">—</strong></p>
+          <canvas id="game3d" width="800" height="360"></canvas>
+          <div class="space"></div>
+          <div class="row">
+            <button id="btn-roll" class="btn primary">🎲 Бросить кубики</button>
+          </div>
+          <div class="spacer"></div>
+          <button id="btn-exit-game" class="btn ghost">← В лобби</button>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="screen-profile" class="screen">
         <div class="card">
           <h2>Профиль</h2>
           <div class="space"></div>
@@ -108,8 +120,8 @@
         </div>
       </section>
 
-      <!-- Themes -->
-      <section id="screen-themes" class="screen" data-screen="themes">
+      <!-- THEMES -->
+      <section id="screen-themes" class="screen">
         <div class="card">
           <h2>Оформления</h2>
           <p class="muted">Скины доски и костей — скоро.</p>
@@ -117,21 +129,19 @@
         </div>
       </section>
 
-      <!-- Donate -->
-      <section id="screen-donate" class="screen" data-screen="donate">
+      <!-- DONATE -->
+      <section id="screen-donate" class="screen">
         <div class="card">
           <h2>Донат</h2>
-          <p class="muted">Мгновенно зачислим монеты (демо). Цены:</p>
+          <p class="muted">Мгновенно зачислим монеты (демо):</p>
           <div class="space"></div>
-          <div class="donate-grid" id="donateGrid"></div>
-          <div class="space"></div>
-          <button id="btn-donate-custom" class="btn secondary">Пополнить на другую сумму…</button>
+          <div class="row" id="donateGrid" style="flex-wrap:wrap; gap:10px"></div>
         </div>
       </section>
     </main>
 
     <nav class="tabbar">
-      <button class="tab active" data-tab="games">🎮 Игры</button>
+      <button class="tab active" data-tab="home">🎮 Игры</button>
       <button class="tab" data-tab="profile">👤 Профиль</button>
       <button class="tab" data-tab="themes">🎨 Оформления</button>
       <button class="tab" data-tab="donate">💎 Донат</button>
@@ -157,115 +167,176 @@
   </div>
 
   <script>
-  // ====== НАСТРОЙКА API (ПОСТАВЬ СВОЙ ДОМЕН) ======
-  const API_BASE = 'https://YOUR-KOYEB-APP-DOMAIN.koyeb.app'; // <-- ЗАМЕНИ на свой Public URL!
-  const TG = window.Telegram?.WebApp; try{TG?.expand?.()}catch{}
+  // ==== НАСТРОЙКА API (ПОСТАВЬ СВОЙ ДОМЕН!) ====
+  const API_BASE = 'https://<ТВОЙ-ДОМЕН>.koyeb.app'; // ← ВСТАВЬ точный Public URL Koyeb
 
-  // ====== Утилиты ======
-  const $ = (s,r=document)=>r.querySelector(s);
-  const $$= (s,r=document)=>Array.from(r.querySelectorAll(s));
-  const api = async (p, m='GET', b=null)=>{
-    const res = await fetch(API_BASE.replace(/\\/+$/,'')+p, {
-      method:m, headers:{'Content-Type':'application/json'},
-      body: b? JSON.stringify(b): null
-    });
+  // ==== Утилиты / Telegram ====
+  const TG = window.Telegram?.WebApp; try{ TG?.expand?.() }catch{}
+  const $ = (s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const api = async (p,m='GET',b=null)=>{
+    const res = await fetch(API_BASE.replace(/\\/+$/,'')+p,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):null});
     if(!res.ok){ let msg='HTTP '+res.status; try{const j=await res.json(); if(j.detail) msg=j.detail;}catch{}; throw new Error(msg); }
     const ct=res.headers.get('content-type')||''; return ct.includes('application/json')? res.json(): res.text();
   };
-  function pop(msg){ if(TG?.showPopup) TG.showPopup({title:'Сообщение', message:msg, buttons:[{type:'ok'}]}); else alert(msg); }
-  function haptic(type='impact'){ try{ TG?.HapticFeedback?.impactOccurred?.(type); }catch{} }
-  function setBusy(btn,on,text){ if(!btn)return; if(!btn.__t) btn.__t=btn.textContent; btn.disabled=!!on; btn.textContent = on?(text||'Загрузка…'):btn.__t; }
+  const pop = (msg)=> TG?.showPopup ? TG.showPopup({title:'Сообщение',message:msg,buttons:[{type:'ok'}]}) : alert(msg);
+  const haptic = (type='impact')=>{ try{ TG?.HapticFeedback?.impactOccurred?.(type) }catch{} };
+  const setBusy = (btn,on,text)=>{ if(!btn) return; if(!btn.__t) btn.__t=btn.textContent; btn.disabled=!!on; btn.textContent = on?(text||'Загрузка…'):btn.__t; };
+  const pid = ()=> (TG?.initDataUnsafe?.user?.id?.toString() || localStorage.getItem('NARDY_UID') || (localStorage.setItem('NARDY_UID','p_'+Math.random().toString(36).slice(2)), localStorage.getItem('NARDY_UID')));
 
-  // ====== Навигация (табы) ======
-  function show(tab){ $$('.screen').forEach(s=>s.classList.remove('active')); $('#screen-'+tab).classList.add('active');
-    $$('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab)); }
-  $$('.tab').forEach(b=> b.addEventListener('click', ()=> show(b.dataset.tab)));
-
-  // ====== Баланс/донат ======
-  const donatePrices = [
-    {coins:50, usd:0.50},{coins:100,usd:0.99},{coins:200,usd:1.99},{coins:500,usd:2.99},{coins:1000,usd:4.99}
-  ];
-  async function refreshBalance(){
-    const pid = TG?.initDataUnsafe?.user?.id?.toString() || 'guest';
-    try{ const r = await api('/api/balance?player_id='+encodeURIComponent(pid)); $('#balance').textContent = r.balance; }
-    catch{ /* ignore */ }
+  // ==== Навигация экранов ====
+  function showScreen(name){
+    $$('.screen').forEach(s=>s.classList.remove('active'));
+    $('#screen-'+name)?.classList.add('active');
+    $$('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab===name));
   }
-  function buildDonate(){
-    const grid = $('#donateGrid'); grid.innerHTML = '';
-    donatePrices.forEach(p=>{
-      const btn = document.createElement('button');
-      btn.className='btn secondary';
-      btn.textContent = `+${p.coins} монет • $${p.usd.toFixed(2)}`;
-      btn.addEventListener('click', ()=> donate(p.coins));
-      grid.appendChild(btn);
+  $$('.tab').forEach(t=> t.addEventListener('click', ()=> showScreen(t.dataset.tab)));
+
+  // ==== Баланс/донат ====
+  const PRICE_LIST = [{coins:50,usd:0.50},{coins:100,usd:0.99},{coins:200,usd:1.99},{coins:500,usd:2.99},{coins:1000,usd:4.99}];
+  function renderDonate(){
+    const box = $('#donateGrid'); box.innerHTML='';
+    PRICE_LIST.forEach(p=>{
+      const b=document.createElement('button'); b.className='btn secondary';
+      b.textContent = `+${p.coins} монет • $${p.usd.toFixed(2)}`;
+      b.addEventListener('click', async ()=>{
+        try{ await api('/api/donate','POST',{player_id: pid(), coins: p.coins}); haptic('heavy'); await refreshBalance(); pop('Спасибо! +' + p.coins + ' монет'); }
+        catch(e){ pop('Ошибка пополнения: '+e.message); }
+      });
+      box.appendChild(b);
     });
   }
-  async function donate(coins){
-    const pid = TG?.initDataUnsafe?.user?.id?.toString() || 'guest';
-    try{ await api('/api/donate','POST',{player_id:pid, coins}); haptic('heavy'); await refreshBalance(); pop('Спасибо! +' + coins + ' монет'); }
-    catch(e){ pop('Ошибка пополнения: ' + e.message); }
+  async function refreshBalance(){
+    try{ const r = await api('/api/balance?player_id='+encodeURIComponent(pid())); $('#balance').textContent = r.balance; }catch{}
   }
 
-  // ====== Комнаты/матч ======
+  // ==== Состояние комнаты/матча ====
   let currentCode = null;
   let myRole = null;
-  let waitTimer = null;
+  let myReady = false;
+  let lobbyTimer = null;
 
-  $('#btn-create').addEventListener('click', async ()=>{
-    setBusy($('#btn-create'), true, 'Создаём…');
-    try{
-      const r = await api('/api/rooms/create', 'POST');
-      currentCode = r.code; myRole='A'; haptic('rigid');
-      pop('Код комнаты: ' + currentCode);
-      // ждём соперника
-      clearInterval(waitTimer);
-      waitTimer = setInterval(async ()=>{
-        try{
-          const st = await api('/api/rooms/'+currentCode+'/status');
-          if(st.status==='ready'){ clearInterval(waitTimer); waitTimer=null; pop('Соперник присоединился! Нажми «Старт матча».'); }
-        }catch{ /* ignore */ }
-      }, 2000);
-    }catch(e){ pop('Не удалось создать: ' + e.message); }
-    finally{ setBusy($('#btn-create'), false); }
+  function renderLobby(players){
+    const box = $('#playersBox'); box.innerHTML='';
+    ['A','B'].forEach(role=>{
+      const p = players[role];
+      const div = document.createElement('div');
+      div.className='col card';
+      div.style.padding='12px';
+      if(p){
+        div.innerHTML = `<strong>${role}</strong><br>${p.name || 'Игрок'}<br><span style="color:${p.ready?'#23c552':'#ffcf33'}">${p.ready?'Готов':'Не готов'}</span>`;
+      } else {
+        div.innerHTML = `<strong>${role}</strong><br><span class="muted">Ожидание…</span>`;
+      }
+      box.appendChild(div);
+    });
+  }
+
+  async function pollLobby(){
+    clearInterval(lobbyTimer);
+    lobbyTimer = setInterval(async ()=>{
+      try{
+        const st = await api('/api/rooms/'+currentCode+'/status');
+        renderLobby(st.players || {});
+        const bothReady = st.players && st.players.A?.ready && st.players.B?.ready;
+        $('#btn-start').disabled = !bothReady;
+        if(st.game_started){ clearInterval(lobbyTimer); lobbyTimer=null; enterGame(); }
+      }catch{
+        clearInterval(lobbyTimer); lobbyTimer=null;
+      }
+    }, 2000);
+  }
+
+  // ==== Действия ====
+  document.addEventListener('click', async (e)=>{
+    const target = e.target.closest('button'); if(!target) return;
+
+    // Создать
+    if(target.id==='btn-create'){
+      e.preventDefault(); setBusy(target,true,'Создаём…');
+      try{
+        const r = await api('/api/rooms/create','POST');
+        currentCode = r.code; myRole='A'; myReady=false;
+        $('#roomCode').textContent = currentCode;
+        renderLobby({});
+        showScreen('lobby'); haptic('rigid'); pop('Код комнаты: '+currentCode);
+        pollLobby();
+      }catch(err){ pop('Не удалось создать: '+err.message); }
+      finally{ setBusy(target,false); }
+      return;
+    }
+
+    // Открыть join
+    if(target.id==='btn-join'){ e.preventDefault(); $('#join-sheet').classList.add('open'); return; }
+    if(target.id==='join-close' || target.id==='join-cancel'){ e.preventDefault(); $('#join-sheet').classList.remove('open'); return; }
+
+    // Войти по коду
+    if(target.id==='btn-join-go'){
+      e.preventDefault(); setBusy(target,true,'Входим…');
+      try{
+        const code = ($('#joinCodeInput').value||'').trim().toUpperCase();
+        if(!code){ setBusy(target,false); return pop('Введи код комнаты'); }
+        const name = $('#profileName')?.value || TG?.initDataUnsafe?.user?.first_name || 'Игрок';
+        const nick = $('#profileNick')?.value || TG?.initDataUnsafe?.user?.username || '';
+        const r = await api('/api/rooms/'+code+'/join','POST',{player_id:pid(), name, nick});
+        currentCode = code; myRole = r.role; myReady=false;
+        $('#roomCode').textContent = currentCode; $('#join-sheet').classList.remove('open');
+        renderLobby({});
+        showScreen('lobby'); haptic('soft'); pollLobby();
+      }catch(err){ pop('Не удалось войти: '+err.message); }
+      finally{ setBusy(target,false); }
+      return;
+    }
+
+    // Я готов / не готов
+    if(target.id==='btn-ready-toggle'){
+      e.preventDefault();
+      if(!currentCode || !myRole) return pop('Нет комнаты');
+      try{
+        const r = await api('/api/rooms/'+currentCode+'/ready','POST',{role: myRole, ready: !myReady});
+        myReady = !myReady;
+        renderLobby(r.players || {});
+        const bothReady = r.players && r.players.A?.ready && r.players.B?.ready;
+        $('#btn-start').disabled = !bothReady;
+        haptic(myReady?'soft':'impact');
+      }catch(err){ pop('Не удалось изменить статус: '+err.message); }
+      return;
+    }
+
+    // Начать матч
+    if(target.id==='btn-start'){
+      e.preventDefault(); if(!currentCode) return;
+      try{
+        const st = await api('/api/game/'+currentCode+'/start','POST');
+        game.setBoard(st.state.board); game.turn = st.state.turn;
+        $('#turnLabel').textContent = st.state.turn==='A'?'Белые (A)':'Чёрные (B)';
+        showScreen('game'); haptic('rigid');
+        clearInterval(lobbyTimer); lobbyTimer=null;
+      }catch(err){ pop('Нельзя начать: '+err.message); }
+      return;
+    }
+
+    // Бросить кубики
+    if(target.id==='btn-roll'){
+      e.preventDefault(); if(!currentCode || !myRole) return pop('Нет активной комнаты');
+      try{
+        const r = await api('/api/game/'+currentCode+'/roll','POST',{role: myRole});
+        game.animateDice(r.dice); $('#turnLabel').textContent = 'Ход: ' + (r.turn==='A'?'Белые (A)':'Чёрные (B)');
+        haptic('heavy');
+      }catch(err){ pop('Нельзя бросить: '+err.message); }
+      return;
+    }
+
+    // Назад из матча в лобби
+    if(target.id==='btn-exit-game'){ e.preventDefault(); showScreen('lobby'); return; }
+
+    // Вернуться в главное
+    if(target.id==='btn-back-home'){ e.preventDefault(); showScreen('home'); return; }
+
+    // Сохранить профиль
+    if(target.id==='btn-save'){ e.preventDefault(); pop('Профиль сохранён'); return; }
   });
 
-  $('#btn-join').addEventListener('click', ()=> $('#join-sheet').classList.add('open'));
-  $('#join-close').addEventListener('click', ()=> $('#join-sheet').classList.remove('open'));
-  $('#join-cancel').addEventListener('click', ()=> $('#join-sheet').classList.remove('open'));
-
-  $('#btn-join-go').addEventListener('click', async ()=>{
-    const code = ($('#joinCodeInput').value||'').trim().toUpperCase();
-    if(!code) return pop('Введи код комнаты');
-    setBusy($('#btn-join-go'), true, 'Входим…');
-    try{
-      const pid = TG?.initDataUnsafe?.user?.id?.toString() || '';
-      const name= $('#profileName')?.value || TG?.initDataUnsafe?.user?.first_name || 'Игрок';
-      const nick= $('#profileNick')?.value || TG?.initDataUnsafe?.user?.username || '';
-      const r = await api('/api/rooms/'+code+'/join','POST',{player_id:pid,name, nick});
-      currentCode = code; myRole = r.role; haptic('soft'); $('#join-sheet').classList.remove('open'); pop('Готово! Код: '+code);
-    }catch(e){ pop('Не удалось войти: '+e.message); }
-    finally{ setBusy($('#btn-join-go'), false); }
-  });
-
-  $('#btn-start').addEventListener('click', async ()=>{
-    if(!currentCode) return pop('Сначала создай комнату или войди по коду');
-    try{
-      const st = await api('/api/game/'+currentCode+'/start','POST');
-      game.setBoard(st.state.board); game.turn = st.state.turn;
-      pop('Старт! Ход: ' + (game.turn==='A'?'Белые (A)':'Чёрные (B)'));
-    }catch(e){ pop('Старт невозможен: '+e.message); }
-  });
-
-  $('#btn-roll').addEventListener('click', async ()=>{
-    if(!currentCode) return pop('Нет активной комнаты');
-    if(!myRole) return pop('Не определена роль игрока');
-    try{
-      const r = await api('/api/game/'+currentCode+'/roll','POST',{role: myRole});
-      haptic('heavy'); game.animateDice(r.dice); game.showHints(); // подсказки ходов (MVP)
-    }catch(e){ pop('Нельзя бросить: ' + e.message); }
-  });
-
-  // ====== 3D Доска + Кубики (MVP) ======
+  // ==== 3D Доска (упрощённая) ====
   const game = (function(){
     const canvas = document.getElementById('game3d');
     const scene = new THREE.Scene();
@@ -273,114 +344,62 @@
     const camera = new THREE.PerspectiveCamera(40, canvas.width/canvas.height, 0.1, 100);
     camera.position.set(0, 7, 9); camera.lookAt(0,0,0);
 
-    const light = new THREE.DirectionalLight(0xffffff, 1.0); light.position.set(5,10,7); scene.add(light);
     scene.add(new THREE.AmbientLight(0xffffff, .45));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.0); dl.position.set(5,10,7); scene.add(dl);
 
-    // Board (simple wood plane)
     const boardGeo = new THREE.BoxGeometry(10, 0.4, 6);
     const boardMat = new THREE.MeshStandardMaterial({color:0x3a2a21, roughness:.8, metalness:.1});
     const board = new THREE.Mesh(boardGeo, boardMat); board.position.y = -0.2; scene.add(board);
 
-    // Checkers (circles on top) – visual demo only
     const checkerGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.12, 32);
     const matA = new THREE.MeshStandardMaterial({color:0xf2f2f2, metalness:.2, roughness:.6});
     const matB = new THREE.MeshStandardMaterial({color:0x111418, metalness:.2, roughness:.6});
-    const checkers = []; // store meshes
+    const checkers = [];
+    let boardArr = Array(24).fill(0);
+    let _turn = 'A';
 
-    // Board model (matches backend): 24 points, A positive to the right->left upper row then lower
-    let boardArr = [];     // from backend
-    let turn = 'A';
-    let diceVals = [];
-
-    function pointToXY(i){ // i: 0..23 -> (x,z)
-      // 12 points top (left->right: 12..1), 12 bottom (1..12)
-      const w = 4.4, h = 2.2; // half widths
-      const gap = 0.4;
-      if(i<=11){ // top row, right->left visually
-        const idx = 11 - i;
-        const x = -w + (idx%6)*( (2*w- gap)/5 ) ;
-        const z = -h;
-        return [x, z];
-      } else { // bottom row, left->right
-        const idx = i-12;
-        const x = -w + (idx%6)*( (2*w- gap)/5 );
-        const z = h;
-        return [x, z];
-      }
+    function pointToXY(i){
+      const w=4.4, h=2.2, gap=0.4;
+      if(i<=11){ const idx=11-i; return [-w + (idx%6)*((2*w-gap)/5), -h]; }
+      const idx=i-12; return [-w + (idx%6)*((2*w-gap)/5), h];
     }
-
-    function rebuildCheckers(){
-      // clear old
-      checkers.forEach(m=>scene.remove(m));
-      checkers.length=0;
-      const stacksTop = Array(24).fill(0);
+    function rebuild(){
+      checkers.forEach(m=>scene.remove(m)); checkers.length=0;
       for(let i=0;i<24;i++){
-        const n = Math.abs(boardArr[i]);
-        const ownerA = boardArr[i] > 0;
+        const n=Math.abs(boardArr[i]); const ownerA=boardArr[i]>0;
         for(let s=0;s<n;s++){
           const m = new THREE.Mesh(checkerGeo, ownerA?matA:matB);
-          const [x,z] = pointToXY(i);
-          m.position.set(x, (s*0.13)+0.06, z);
+          const [x,z] = pointToXY(i); m.position.set(x,(s*0.13)+0.06,z);
           scene.add(m); checkers.push(m);
         }
       }
       render();
     }
 
-    // Dice
-    const dice = [];
-    function makeDie(){
-      const g = new THREE.BoxGeometry(0.5,0.5,0.5);
-      const m = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.5, metalness:.2});
-      const cube = new THREE.Mesh(g, m);
-      cube.castShadow = true; return cube;
-    }
+    const dice=[];
+    function makeDie(){ const g=new THREE.BoxGeometry(0.5,0.5,0.5); const m=new THREE.MeshStandardMaterial({color:0xffffff, roughness:.5, metalness:.2}); return new THREE.Mesh(g,m); }
     function animateDice(vals){
-      diceVals = vals.slice();
-      // remove old
       dice.forEach(d=>scene.remove(d)); dice.length=0;
-      // spawn from bottom and arc up
       for(let i=0;i<Math.min(2, vals.length); i++){
-        const d = makeDie();
-        d.position.set(-2 + i*1.0, -1.5, 3.2); // ниже экрана (снизу)
-        scene.add(d); dice.push(d);
+        const d = makeDie(); d.position.set(-2 + i*1.0, -1.5, 3.2); scene.add(d); dice.push(d);
       }
-      const t0 = performance.now();
-      function tick(){
-        const t = (performance.now()-t0)/1000;
-        dice.forEach((d,idx)=>{
-          d.position.y = Math.min(0.6, -1.5 + t*2.5);
-          d.position.x += 0.01 + idx*0.005;
-          d.rotation.x += 0.2 + idx*0.1;
-          d.rotation.y += 0.3;
-        });
-        render();
-        if(t<1.0) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
+      const t0=performance.now(); (function tick(){
+        const t=(performance.now()-t0)/1000;
+        dice.forEach((d,idx)=>{ d.position.y=Math.min(0.6,-1.5+t*2.5); d.position.x+=0.01+idx*0.005; d.rotation.x+=0.2+idx*0.1; d.rotation.y+=0.3; });
+        render(); if(t<1.0) requestAnimationFrame(tick);
+      })();
     }
 
-    function showHints(){
-      // MVP: подсказки = просто показать значения кубиков
-      const hint = document.getElementById('movesHint');
-      hint.style.display='inline-block';
-      hint.textContent = 'Кубики: ' + (diceVals && diceVals.length ? diceVals.join(' + ') : '—');
-    }
-
-    function setBoard(arr){ boardArr = arr.slice(); rebuildCheckers(); }
+    function setBoard(arr){ boardArr=arr.slice(); rebuild(); }
     function render(){ renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); renderer.render(scene, camera); }
 
-    // initial
-    setBoard(Array(24).fill(0));
-    render();
-
-    return { setBoard, animateDice, showHints, get turn(){return turn;}, set turn(v){ turn=v; } };
+    return { setBoard, animateDice, get turn(){return _turn;}, set turn(v){_turn=v;} };
   })();
 
-  // ====== Инициализация ======
-  buildDonate(); refreshBalance();
-  // Стартовая проверка API
-  fetch(API_BASE.replace(/\\/+$/,'')+'/health').catch(()=> pop('API недоступно. Проверь домен в index.html → API_BASE'));
+  // ==== Инициализация ====
+  renderDonate(); refreshBalance();
+  // Проверка API
+  fetch(API_BASE.replace(/\\/+$/,'')+'/health').catch(()=> pop('API недоступно. Укажи правильный API_BASE в index.html'));
   </script>
 </body>
 </html>
