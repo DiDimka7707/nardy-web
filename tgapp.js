@@ -1,7 +1,7 @@
 // tgapp.js v15 — стабильные табы, создание/вход, баланс, донат
 
 // ====== НАСТРОЙКА БЭКА ======
-const API_BASE = 'https://<ТВОЙ-ДОМЕН>.koyeb.app'; // ← ПОМЕНЯЙ на свой Koyeb домен
+const API_BASE = 'https://eldest-gabbey-didimka-team-ba6a197d.koyeb.app' ; // ← ПОМЕНЯЙ на свой Koyeb домен
 
 // ====== УТИЛЫ ======
 const $ = (s,r=document)=>r.querySelector(s);
